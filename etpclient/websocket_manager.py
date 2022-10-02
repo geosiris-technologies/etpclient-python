@@ -47,7 +47,9 @@ async def wait_for_response(
             isinstance(websocket_manager.recieved_msg_dict[msg_id], Message)
             or (
                 isinstance(websocket_manager.recieved_msg_dict[msg_id], list)
-                and websocket_manager.recieved_msg_dict[msg_id][-1].is_final_msg()
+                and websocket_manager.recieved_msg_dict[msg_id][
+                    -1
+                ].is_final_msg()
             )
         ):
             return websocket_manager.recieved_msg_dict[msg_id]
@@ -56,7 +58,13 @@ async def wait_for_response(
 
 
 class WebSocketManager:
-    def __init__(self, uri: str, username: str = None, password: str = None, token: str = None):
+    def __init__(
+        self,
+        uri: str,
+        username: str = None,
+        password: str = None,
+        token: str = None,
+    ):
         self.recieved_msg_dict = {}
         # print("BASIC : ", basic_auth_header(username, password))
         # "ws://admin:openSesame@localhost:16500/etp/"
@@ -93,11 +101,13 @@ class WebSocketManager:
 
         self.etp_connection = ETPConnection(
             connection_type=ConnectionType.CLIENT,
-            client_info=ClientInfo(ip=uri, 
-                                endpoint_capabilities= {
-                            "MaxWebSocketFramePayloadSize": 40000,
-                            "MaxWebSocketMessagePayloadSize": 40000,
-                        })
+            client_info=ClientInfo(
+                ip=uri,
+                endpoint_capabilities={
+                    "MaxWebSocketFramePayloadSize": 40000,
+                    "MaxWebSocketMessagePayloadSize": 40000,
+                },
+            ),
         )
         self.recieved = {}
 
@@ -117,7 +127,9 @@ class WebSocketManager:
         print("ON_MSG : ")
         # print("ON_MSG : ", message)
 
-        async def handle_msg(conn: ETPConnection, websocket_manager, msg: bytes):
+        async def handle_msg(
+            conn: ETPConnection, websocket_manager, msg: bytes
+        ):
             try:
                 # print("##> before recieved " )
                 recieved = Message.decode_binary_message(
@@ -129,7 +141,7 @@ class WebSocketManager:
                 #     recieved.header.protocol == 0
                 #     or type(recieved.body) != bytes
                 # ):
-                    # print("ERR : ", recieved.body)
+                # print("ERR : ", recieved.body)
                 print("##> body type : ", type(recieved.body))
                 # print("##> body content : ", recieved.body)
 
@@ -140,9 +152,18 @@ class WebSocketManager:
                     async for b_msg in conn.handle_bytes_generator(msg):
                         # print(b_msg)
                         # print("##> bmsg " )
-                        if b_msg.headers.correlation_id not in websocket_manager.recieved_msg_dict[b_msg.headers.correlation_id]:
-                            websocket_manager.recieved_msg_dict[b_msg.headers.correlation_id] = [0]
-                        websocket_manager.recieved_msg_dict[b_msg.headers.correlation_id].append(b_msg)
+                        if (
+                            b_msg.headers.correlation_id
+                            not in websocket_manager.recieved_msg_dict[
+                                b_msg.headers.correlation_id
+                            ]
+                        ):
+                            websocket_manager.recieved_msg_dict[
+                                b_msg.headers.correlation_id
+                            ] = [0]
+                        websocket_manager.recieved_msg_dict[
+                            b_msg.headers.correlation_id
+                        ].append(b_msg)
                     # print("MSG : " + str(type(msg.body)))
 
                 # async for b_msg in conn.handle_bytes_generator(msg):
@@ -194,7 +215,10 @@ class WebSocketManager:
             # print("Msg sent... ", msg_to_send)
         # return wait_for_response(conn=self.etp_connection, msg_id = msg_id, timeout=timeout)
         result = await wait_for_response(
-            conn=self.etp_connection, websocket_manager=self, msg_id=msg_id, timeout=timeout
+            conn=self.etp_connection,
+            websocket_manager=self,
+            msg_id=msg_id,
+            timeout=timeout,
         )
         # print("Answer : \n", result)
         print("Answer recieved")

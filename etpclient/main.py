@@ -27,8 +27,12 @@ def helper():
     print("\tGetDataArray [URI] [PATH_IN_RESOURCE] ")
     print("\tGetDataObject [URI_1] [...] [URI_N]")
     print("\tGetDataspaces")
-    print("\tGetResources [[uri=eml:/// or notUri=DataspaceName]] [[depth=1]] [[SCOPE]]")
-    print("\tPutDataArray [[UUIDS]]* [DATASPACE_NAME] [EPC_FILE_PATH] [H5_FILE_PATH]")
+    print(
+        "\tGetResources [[uri=eml:/// or notUri=DataspaceName]] [[depth=1]] [[SCOPE]]"
+    )
+    print(
+        "\tPutDataArray [[UUIDS]]* [DATASPACE_NAME] [EPC_FILE_PATH] [H5_FILE_PATH]"
+    )
     print("\tPutDataObject [FILE_PATH] [[DATASPACE_NAME]] ")
     print("\tPutDataspace [NAME]")
 
@@ -43,7 +47,8 @@ def wait_symbol(nb):
     elif nb % 4 == 3:
         return "\\"
 
-def get_verified_url(url: str, prefix:list[str]=["http://", "https://"]):
+
+def get_verified_url(url: str, prefix: list[str] = ["http://", "https://"]):
     for p in prefix:
         if url.lower().startswith(p.lower()):
             return url
@@ -56,9 +61,11 @@ def get_token(get_token_url: str):
         return requests.get(get_verified_url(get_token_url)).json()["token"]
     return None
 
+
 def end_message(reason: str = None):
-    
+
     print("Bye bye")
+
 
 async def client(
     serv_url=None,
@@ -95,11 +102,16 @@ async def client(
     pretty_p.pprint(json.loads(server_caps_txt))
     print("<====== SERVER CAPS\n")
 
-    wsm = WebSocketManager("ws://" + serv_uri, username = serv_username, password = serv_password, token = get_token(serv_get_token_url))
+    wsm = WebSocketManager(
+        "ws://" + serv_uri,
+        username=serv_username,
+        password=serv_password,
+        token=get_token(serv_get_token_url),
+    )
     cpt_wait = 0
     time_step = 0.01
     while not wsm.is_connected() and (cpt_wait * time_step < 30):
-        if (cpt_wait * 1000 % 1000) < 5 :
+        if (cpt_wait * 1000 % 1000) < 5:
             print("\rwait for connection" + wait_symbol(cpt_wait), end="")
         cpt_wait = cpt_wait + 1
         time.sleep(time_step)
@@ -134,7 +146,9 @@ async def client(
                 print("No answer...")
         elif a.lower().startswith("putdataobject"):
             args = a.split(" ")
-            for putDataObj in put_data_object_by_path(args[1], args[2] if len(args)>2 else None):
+            for putDataObj in put_data_object_by_path(
+                args[1], args[2] if len(args) > 2 else None
+            ):
                 result = await wsm.send_no_wait(putDataObj)
                 if result:
                     pretty_p.pprint(result)
@@ -145,7 +159,7 @@ async def client(
                     print("No answer...")
         elif a.lower().startswith("getdataarray"):
             args = a.split(" ")
-            if len(args) <= 2 :
+            if len(args) <= 2:
                 print("Usage : GetDataArray [URI] [PATH_IN_RESOURCES]")
             else:
                 get_data_arr = get_data_array(args[1], args[2])
@@ -186,15 +200,19 @@ async def client(
         elif a.lower().startswith("putdataarray"):
             args = a.split(" ")
             try:
-                if len(args)<3:
-                    print("Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH")
+                if len(args) < 3:
+                    print(
+                        "Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH"
+                    )
                 else:
                     uuid_list = args[:-3]
                     dataspace = args[-3]
                     epc_path = args[-2]
                     h5_path = args[-1]
 
-                    async for msg_idx in put_data_array_sender(uuid_list, epc_path, h5_path, dataspace):
+                    async for msg_idx in put_data_array_sender(
+                        uuid_list, epc_path, h5_path, dataspace
+                    ):
                         print(msg_idx)
 
                     # for pda in put_data_array(uuid_list, epc_path, h5_path, dataspace):
@@ -233,6 +251,7 @@ async def client(
             running = False
 
     end_message()
+
 
 def main():
 
@@ -300,6 +319,7 @@ def main():
                 serv_get_token_url=args.token_url,
             )
         )
+
 
 if __name__ == "__main__":
     main()

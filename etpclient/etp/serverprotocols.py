@@ -49,7 +49,9 @@ from etptypes.energistics.etp.v12.protocol.core.close_session import (
 from etptypes.energistics.etp.v12.protocol.core.open_session import OpenSession
 from etptypes.energistics.etp.v12.protocol.core.ping import Ping
 from etptypes.energistics.etp.v12.protocol.core.pong import Pong
-from etptypes.energistics.etp.v12.protocol.core.protocol_exception import ProtocolException
+from etptypes.energistics.etp.v12.protocol.core.protocol_exception import (
+    ProtocolException,
+)
 from etptypes.energistics.etp.v12.protocol.core.request_session import (
     RequestSession,
 )
@@ -161,6 +163,7 @@ def print_resource(res: Resource):
     print("\tTarget count :", res.target_count)
     # print("\tLast change :", datetime.fromtimestamp(res.last_changed))
 
+
 def print_dataspace(res: Dataspace):
     print("Dataspace :", res.uri)
     print("\tStore last write :", res.store_last_write)
@@ -184,7 +187,6 @@ class myCoreProtocol(CoreHandler):
         print("OpenSession recieved")
         yield
 
-
     async def on_close_session(
         self,
         msg: CloseSession,
@@ -202,9 +204,9 @@ class myCoreProtocol(CoreHandler):
     ) -> AsyncGenerator[bytes, None]:
         print(client_info.ip, ": #Core : Ping recieved")
         yield Message.get_object_message(
-                Pong(currentDateTime=int(datetime.utcnow().timestamp())),
-                correlation_id=correlation_id
-            )
+            Pong(currentDateTime=int(datetime.utcnow().timestamp())),
+            correlation_id=correlation_id,
+        )
 
     async def on_pong(
         self,
@@ -214,7 +216,6 @@ class myCoreProtocol(CoreHandler):
     ) -> AsyncGenerator[bytes, None]:
         print(client_info.ip, ": #Core : Pong recieved")
         yield
-
 
     async def on_protocol_exception(
         self,
@@ -236,14 +237,17 @@ class myCoreProtocol(CoreHandler):
 
 @ETPConnection.on(CommunicationProtocol.DISCOVERY)
 class myDiscoveryProtocol(DiscoveryHandler):
-
     async def on_get_resources_response(
         self,
         msg: GetResourcesResponse,
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print("## myDiscoveryProtocol ## on_get_resources_response : nb[", len(msg.resources), "]")
+        print(
+            "## myDiscoveryProtocol ## on_get_resources_response : nb[",
+            len(msg.resources),
+            "]",
+        )
         for res in msg.resources:
             print_resource(res)
         yield
@@ -260,7 +264,9 @@ class myDiscoveryProtocol(DiscoveryHandler):
 @ETPConnection.on(CommunicationProtocol.DATASPACE)
 class myDataspaceHandler(DataspaceHandler):
     async def on_delete_dataspaces(
-        self, msg: DeleteDataspaces, msg_header: MessageHeader,
+        self,
+        msg: DeleteDataspaces,
+        msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         print(client_info.ip, ": on_delete_dataspaces")
@@ -269,7 +275,9 @@ class myDataspaceHandler(DataspaceHandler):
         yield etpErr
 
     async def on_get_dataspaces(
-        self, msg: GetDataspaces, msg_header: MessageHeader,
+        self,
+        msg: GetDataspaces,
+        msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         print(client_info.ip, ": on_get_dataspaces")
@@ -278,7 +286,9 @@ class myDataspaceHandler(DataspaceHandler):
         yield etpErr
 
     async def on_put_dataspaces(
-        self, msg: PutDataspaces, msg_header: MessageHeader,
+        self,
+        msg: PutDataspaces,
+        msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         print(client_info.ip, ": on_put_dataspaces")
@@ -287,7 +297,9 @@ class myDataspaceHandler(DataspaceHandler):
         yield etpErr
 
     async def on_delete_dataspaces_response(
-        self, msg: DeleteDataspacesResponse, msg_header: MessageHeader,
+        self,
+        msg: DeleteDataspacesResponse,
+        msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         pretty_p.pprint(msg)
@@ -295,7 +307,9 @@ class myDataspaceHandler(DataspaceHandler):
         # raise NotSupportedError()
 
     async def on_get_dataspaces_response(
-        self, msg: GetDataspacesResponse, msg_header: MessageHeader,
+        self,
+        msg: GetDataspacesResponse,
+        msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         for dataspace in msg.dataspaces:
@@ -304,7 +318,9 @@ class myDataspaceHandler(DataspaceHandler):
         # raise NotSupportedError()
 
     async def on_put_dataspaces_response(
-        self, msg: PutDataspacesResponse, msg_header: MessageHeader,
+        self,
+        msg: PutDataspacesResponse,
+        msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         pretty_p.pprint(msg)
@@ -355,23 +371,25 @@ class myStoreProtocol(StoreHandler):
         yield etpErr
 
     async def on_get_data_objects_response(
-            self,
-            msg: GetDataObjectsResponse,
-            msg_header: MessageHeader,
-            client_info: Union[None, ClientInfo] = None,
-        ) -> AsyncGenerator[bytes, None]:
+        self,
+        msg: GetDataObjectsResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[bytes, None]:
         print("# on_get_data_objects_response")
         pretty_p.pprint(msg)
         yield
 
     async def on_put_data_objects_response(
-            self,
-            msg: PutDataObjectsResponse,
-            msg_header: MessageHeader,
-            client_info: Union[None, ClientInfo] = None,
-        ) -> AsyncGenerator[bytes, None]:
+        self,
+        msg: PutDataObjectsResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[bytes, None]:
         pretty_p.pprint(msg)
         yield
+
+
 #     ____        __        ___                             ____             __                   __
 #    / __ \____ _/ /_____ _/   |  ______________ ___  __   / __ \_________  / /_____  _________  / /
 #   / / / / __ `/ __/ __ `/ /| | / ___/ ___/ __ `/ / / /  / /_/ / ___/ __ \/ __/ __ \/ ___/ __ \/ /
@@ -481,18 +499,18 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
         ),
         supported_data_objects=[
             SupportedDataObject(
-                qualified_type="resqml20.*", 
-                data_object_capabilities={}),  
-                # data_object_capabilities=["get", "put", "del"]),
+                qualified_type="resqml20.*", data_object_capabilities={}
+            ),
+            # data_object_capabilities=["get", "put", "del"]),
             SupportedDataObject(
-                qualified_type="resqml22.*", 
-                data_object_capabilities={}),
-                # data_object_capabilities=["get", "put", "del"])
+                qualified_type="resqml22.*", data_object_capabilities={}
+            ),
+            # data_object_capabilities=["get", "put", "del"])
         ],
         supported_compression=["string"],
         supported_formats=["xml"],
         endpoint_capabilities={
-            'MaxWebSocketMessagePayloadSize' : DataValue(item=666)
+            "MaxWebSocketMessagePayloadSize": DataValue(item=666)
         },
         supported_encodings=["binary"],
         contact_information=Contact(
