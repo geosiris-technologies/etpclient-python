@@ -78,9 +78,21 @@ exclude = '''
 )/
 '''
 
+[tool.pytest.ini_options]
+addopts = ""
+console_output_style = "count"
+python_classes = "Test"
+python_files = "test_*.py"
+python_functions = "test*"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
 [tool.coverage.run]
 branch = true
 source = ["etpclient"]
+
+[tool.pylint.format]
+max-line-length = "88"
 
 [tool.poetry.scripts]
 client = "etpclient.main:main"
