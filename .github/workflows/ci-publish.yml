@@ -3,10 +3,8 @@
 name: Publish release
 
 on:
-  push:
-    tags:
-      # Run when a tag is pushed with a valid semantic version number
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+  release:
+    types: [published]
 
 jobs:
   build:
