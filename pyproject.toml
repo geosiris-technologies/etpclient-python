@@ -1,0 +1,99 @@
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "etpclient"
+version = "0.0.1"
+description = ""
+authors = ["Valentin Gauthier <valentin.gauthier@geosiris.com>"]
+maintainers = [
+    "Valentin Gauthier <valentin.gauthier@geosiris.com>"
+]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "www.geosiris.com"
+repository = "https://github.com/geosiris-technologies/etpclient-python"
+packages = [
+    { include = 'etpclient', from = '.' }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+keywords = ["ETP"]
+
+[tool.poetry.dependencies]
+python = "^3.9,<3.11"
+lxml = "^4.6.3"
+xmljson = "^0.2.1"
+websocket-client = "^1.0.0"
+requests = "^2.25.1"
+ipykernel = "^6.5.1"
+h5py = "^3.7.0"
+etptypes = "^1.0.1"
+etpproto = "^1.0.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.0.0"
+bandit = "^1.7.1"
+pylint = "^2.11.1"
+black = {version = "^21.11b1", allow-prereleases = true}
+flake8 = "^4.0.1"
+
+[tool.black]
+line-length = 79
+target-version = ["py38"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.coverage.run]
+branch = true
+source = ["etpclient"]
+
+[tool.poetry.scripts]
+client = "etpclient.main:main"
+
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "pep440"
+format-jinja = """
+    {%- if distance == 0 -%}
+        {{ serialize_pep440(base, stage, revision) }}
+    {%- elif revision is not none -%}
+        {{ serialize_pep440(base, stage, revision + 1, dev=distance) }}
+    {%- else -%}
+        {{ serialize_pep440(bump_version(base), stage, revision, dev=distance) }}
+    {%- endif -%}
+"""
