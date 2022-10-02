@@ -753,6 +753,21 @@ tomli = ">=1.0.0"
 testing = ["argcomplete", "hypothesis (>=3.56)", "mock", "nose", "pygments (>=2.7.2)", "requests", "xmlschema"]
 
 [[package]]
+name = "pytest-cov"
+version = "4.0.0"
+description = "Pytest plugin for measuring coverage."
+category = "dev"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+coverage = {version = ">=5.2.1", extras = ["toml"]}
+pytest = ">=4.6"
+
+[package.extras]
+testing = ["fields", "hunter", "process-tests", "six", "pytest-xdist", "virtualenv"]
+
+[[package]]
 name = "python-dateutil"
 version = "2.8.2"
 description = "Extensions to the standard Python datetime module"
@@ -959,7 +974,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9,<3.11"
-content-hash = "620d3d655b71d1bd11983e91ae3f6b2838160b851c4b9b3e7f8a4bb3b60c72be"
+content-hash = "f519ed3b67a7676fb3f7d1606cf034628413ba29ae2ca17ca9992f49f4b2e0a5"
 
 [metadata.files]
 appnope = []
@@ -1024,6 +1039,7 @@ pygments = []
 pylint = []
 pyparsing = []
 pytest = []
+pytest-cov = []
 python-dateutil = []
 pywin32 = []
 pyyaml = []
