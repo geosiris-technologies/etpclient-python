@@ -3,7 +3,6 @@ import re
 from lxml import etree
 
 
-
 def get_class_attributes(cls):
     att_and_type_list = []
     props = cls.schema()

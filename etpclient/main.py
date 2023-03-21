@@ -18,19 +18,28 @@ def helper():
     print("############")
     print("#  HELPER  #")
     print("############")
-    print("[XXX] : replace XXX with your value")
-    print("[XXX=Y] : replace XXX with your value, default is Y")
-    print("[[XXX]] : optional parameter")
-    print("\tHelp : show this menu")
-    print("\tQuit : hard quit (no CloseSession sent)")
-    print("\tCloseSession : close this session")
-    print("\tGetDataArray [URI] [PATH_IN_RESOURCE] ")
-    print("\tGetDataObject [URI_1] [...] [URI_N]")
-    print("\tGetDataspaces")
-    print("\tGetResources [[uri=eml:/// or notUri=DataspaceName]] [[depth=1]] [[SCOPE]]")
-    print("\tPutDataArray [[UUIDS]]* [DATASPACE_NAME] [EPC_FILE_PATH] [H5_FILE_PATH]")
-    print("\tPutDataObject [FILE_PATH] [[DATASPACE_NAME]] ")
-    print("\tPutDataspace [NAME]")
+    print("""[XXX] : replace XXX with your value
+[XXX=Y] : replace XXX with your value, default is Y
+[[XXX]] : optional parameter
+
+\tHelp : show this menu
+
+\tQuit : hard quit (no CloseSession sent)
+\tCloseSession : close this session
+
+\tGetDataArrayMetadata  [URI] [PATH_IN_RESOURCE] 
+\tGetDataArray          [URI] [PATH_IN_RESOURCE] 
+\tGetDataSubArray       [URI] [PATH_IN_RESOURCE] [START] [COUNT]
+\tPutDataArray          [[UUIDS]]* [DATASPACE_NAME] [EPC_FILE_PATH] [H5_FILE_PATH]
+
+\tGetDataObject         [URI_1] [...] [URI_N]
+\tPutDataObject         [FILE_PATH] [[DATASPACE_NAME]]
+\tGetResources          [[uri=eml:/// or notUri=DataspaceName]] [[depth=1]] [[SCOPE]]
+
+\tGetDataspaces
+\tPutDataspace          [NAME]
+\tDeleteDataspace       [NAME]
+""")
 
 
 def wait_symbol(nb):
@@ -42,6 +51,7 @@ def wait_symbol(nb):
         return "-"
     elif nb % 4 == 3:
         return "\\"
+
 
 def get_verified_url(url: str, prefix:list[str]=["http://", "https://"]):
     for p in prefix:
@@ -109,6 +119,8 @@ async def client(
     if not running and (cpt_wait * time_step >= 30):
         print("Timeout...")
 
+    result = None
+
     while running:
         a = input("Please write something\n")
 
@@ -117,7 +129,7 @@ async def client(
         elif a.lower().startswith("help"):
             helper()
         elif a.lower().startswith("getresource"):
-            args = a.split(" ")
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             result = await wsm.send_and_wait(
                 get_resouces(
                     args[1] if len(args) > 1 else "eml:///",
@@ -132,8 +144,9 @@ async def client(
                 pass
             else:
                 print("No answer...")
+
         elif a.lower().startswith("putdataobject"):
-            args = a.split(" ")
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             for putDataObj in put_data_object_by_path(args[1], args[2] if len(args)>2 else None):
                 result = await wsm.send_no_wait(putDataObj)
                 if result:
@@ -143,20 +156,44 @@ async def client(
                     pass
                 else:
                     print("No answer...")
-        elif a.lower().startswith("getdataarray"):
-            args = a.split(" ")
+
+        elif a.lower().startswith("getdataarraymetadata"):
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             if len(args) <= 2 :
-                print("Usage : GetDataArray [URI] [PATH_IN_RESOURCES]")
+                print("Usage : GetDataArrayMetadata [URI] [PATH_IN_RESOURCES]")
             else:
-                get_data_arr = get_data_array(args[1], args[2])
+                print(f"===> {args}\n")
+                get_data_arr = get_data_array_metadata(args[1], args[2])
+                print(f"\n\n{get_data_arr}\n\n")
+
                 result = await wsm.send_no_wait(get_data_arr)
                 if result:
                     pretty_p.pprint(result)
                     pass
                 else:
                     print("No answer...")
+
+        elif a.lower().startswith("getdataarray") or a.lower().startswith("getdatasubarray"):
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
+            if len(args) <= 2 :
+                print("Usage : GetDataSubArray [URI] [PATH_IN_RESOURCES] [START] [COUNT]")
+            else:
+                print(f"===> {args}\n")
+                if len(args) > 4:  # subArray
+                    get_data_arr = get_data_array(args[1], args[2], int(args[3]), int(args[4]))
+                else:
+                    get_data_arr = get_data_array(args[1], args[2])
+
+                print(f"\n\n{get_data_arr}\n\n")
+                result = await wsm.send_no_wait(get_data_arr)
+                if result:
+                    pretty_p.pprint(result)
+                    pass
+                else:
+                    print("No answer...")
+
         elif a.lower().startswith("getdataobject"):
-            args = a.split(" ")
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             get_data_obj = get_data_object(args[1:])
             # print("Sending : ", get_data_obj.__dict__)
             result = await wsm.send_and_wait(get_data_obj)
@@ -165,6 +202,7 @@ async def client(
                 pass
             else:
                 print("No answer...")
+
         elif a.lower().startswith("getdataspaces"):
             result = await wsm.send_and_wait(get_dataspaces())
             if result:
@@ -172,8 +210,9 @@ async def client(
                 pass
             else:
                 print("No answer...")
+
         elif a.lower().startswith("putdataspace"):
-            args = a.split(" ")
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             try:
                 result = await wsm.send_and_wait(put_dataspace(args[1:]))
                 if result:
@@ -183,18 +222,19 @@ async def client(
                     print("No answer...")
             except Exception as e:
                 print(e)
+
         elif a.lower().startswith("putdataarray"):
-            args = a.split(" ")
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             try:
                 if len(args)<3:
                     print("Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH")
                 else:
-                    uuid_list = args[:-3]
+                    uuid_list = args[1:-3] if len(args) > 4 else []
                     dataspace = args[-3]
                     epc_path = args[-2]
                     h5_path = args[-1]
 
-                    async for msg_idx in put_data_array_sender(uuid_list, epc_path, h5_path, dataspace):
+                    async for msg_idx in put_data_array_sender(wsm, uuid_list, epc_path, h5_path, dataspace):
                         print(msg_idx)
 
                     # for pda in put_data_array(uuid_list, epc_path, h5_path, dataspace):
@@ -207,8 +247,9 @@ async def client(
                         print("No answer...")
             except Exception as e:
                 print(e)
+
         elif a.lower().startswith("deletedataspace"):
-            args = a.split(" ")
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             try:
                 result = await wsm.send_and_wait(delete_dataspace(args[1:]))
                 if result:
@@ -218,8 +259,9 @@ async def client(
                     print("No answer...")
             except Exception as e:
                 print(e)
+
         elif a.lower().startswith("closesession"):
-            args = a.split(" ")
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             result = await wsm.send_and_wait(
                 get_close_session(
                     args[1] if len(args) > 1 else "We have finished"
@@ -300,6 +342,7 @@ def main():
                 serv_get_token_url=args.token_url,
             )
         )
+
 
 if __name__ == "__main__":
     main()

@@ -49,7 +49,9 @@ def generate_put_data_arrays(xml_obj: str, h5_file_path: str, dataspace: str=Non
     
     obj_dict = get_xml_dict_from_string(xml_obj)
     for path_in_hdf in search_all_element_value(obj_dict, "PathInExternalFile") + search_all_element_value(obj_dict, "PathInHdfFile"):
+        print(f"search in h5 {path_in_hdf}")
         data, shape, dtype = h5_search_dataset(h5_file_path, path_in_hdf)
+        print(f"\t==> shape {shape}")
         pda_dict = {
             "dataArrays": {
                 "0": {

@@ -2,6 +2,8 @@ from typing import Union, AsyncGenerator, Optional
 from datetime import datetime
 import uuid as pyUUID
 import pprint
+import lxml.etree as etree
+import json
 
 from etpproto.messages import Message
 from etptypes.energistics.etp.v12.datatypes.message_header import MessageHeader
@@ -311,6 +313,15 @@ class myDataspaceHandler(DataspaceHandler):
         yield
         # raise NotSupportedError()
 
+    async def on_protocol_exception(
+        self,
+        msg: ProtocolException,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print("Error recieved : " + str(msg))
+        yield
+
 
 #    _____ __                     ____             __                   __
 #   / ___// /_____  ________     / __ \_________  / /_____  _________  / /
@@ -361,7 +372,18 @@ class myStoreProtocol(StoreHandler):
             client_info: Union[None, ClientInfo] = None,
         ) -> AsyncGenerator[bytes, None]:
         print("# on_get_data_objects_response")
-        pretty_p.pprint(msg)
+        # pretty_p.pprint(msg)
+        for do in msg.data_objects.values():
+            form = do.format_.lower()
+            try:
+                if form == "xml":
+                    print(do.data.decode("utf-8"))
+                elif form == "json":
+                    json.dumps(json.loads(do.data.data.decode("utf-8")), indent=4)
+            except Exception as e:
+                print("\n\n=============", e, "\n")
+                pretty_p.pprint(do)
+
         yield
 
     async def on_put_data_objects_response(
@@ -371,6 +393,15 @@ class myStoreProtocol(StoreHandler):
             client_info: Union[None, ClientInfo] = None,
         ) -> AsyncGenerator[bytes, None]:
         pretty_p.pprint(msg)
+        yield
+
+    async def on_protocol_exception(
+        self,
+        msg: ProtocolException,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print("Error recieved : " + str(msg))
         yield
 #     ____        __        ___                             ____             __                   __
 #    / __ \____ _/ /_____ _/   |  ______________ ___  __   / __ \_________  / /_____  _________  / /
@@ -394,6 +425,15 @@ class myDataArrayHandler(DataArrayHandler):
         etpObj, etpErr = myDataArrayHandler.hsdsbridge.handle_metadata(msg)
         yield Message.get_object_message(etpObj, correlation_id=correlation_id)
         yield etpErr
+    
+    async def on_get_data_array_metadata_response(
+        self,
+        msg: GetDataArrayMetadataResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(client_info.ip, msg)
+        yield
 
     async def on_get_data_arrays(
         self,
@@ -417,6 +457,25 @@ class myDataArrayHandler(DataArrayHandler):
         yield Message.get_object_message(etpObj, correlation_id=correlation_id)
         yield etpErr
 
+    async def on_get_data_arrays_response(
+        self,
+        msg: GetDataArraysResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(client_info.ip, msg)
+        yield
+        
+
+    async def on_get_data_subarrays_response(
+        self,
+        msg: GetDataSubarraysResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(client_info.ip, msg)
+        yield
+
     async def on_put_data_arrays(
         self,
         msg: PutDataArrays,
@@ -427,6 +486,24 @@ class myDataArrayHandler(DataArrayHandler):
         etpObj, etpErr = myDataArrayHandler.hsdsbridge.send_request(msg)
         yield Message.get_object_message(etpObj, correlation_id=correlation_id)
         yield etpErr
+
+    async def on_put_data_arrays_response(
+        self,
+        msg: PutDataArraysResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(client_info.ip, msg)
+        yield
+
+    async def on_protocol_exception(
+        self,
+        msg: ProtocolException,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print("Error recieved : " + str(msg))
+        yield
 
 
 #    _____                              __           ________
@@ -483,16 +560,16 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
             SupportedDataObject(
                 qualified_type="resqml20.*", 
                 data_object_capabilities={}),  
-                # data_object_capabilities=["get", "put", "del"]),
+                # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True}),
             SupportedDataObject(
                 qualified_type="resqml22.*", 
                 data_object_capabilities={}),
-                # data_object_capabilities=["get", "put", "del"])
+                # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True})
         ],
         supported_compression=["string"],
         supported_formats=["xml"],
         endpoint_capabilities={
-            'MaxWebSocketMessagePayloadSize' : DataValue(item=666)
+            'MaxWebSocketMessagePayloadSize' : DataValue(item=4000)
         },
         supported_encodings=["binary"],
         contact_information=Contact(

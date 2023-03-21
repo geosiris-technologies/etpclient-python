@@ -114,7 +114,7 @@ class WebSocketManager:
         return self.etp_connection.is_connected
 
     def on_message(self, ws, message):
-        print("ON_MSG : ")
+        # print("ON_MSG : ")
         # print("ON_MSG : ", message)
 
         async def handle_msg(conn: ETPConnection, websocket_manager, msg: bytes):
@@ -124,18 +124,20 @@ class WebSocketManager:
                     message,
                     dict_map_pro_to_class=ETPConnection.generic_transition_table,
                 )
-                print("\n##> recieved header : ", recieved.header, "\n\n")
-                # if (
-                #     recieved.header.protocol == 0
-                #     or type(recieved.body) != bytes
-                # ):
-                    # print("ERR : ", recieved.body)
-                print("##> body type : ", type(recieved.body))
-                # print("##> body content : ", recieved.body)
+                if recieved.is_final_msg():
+                    print("\n##> recieved header : ", recieved.header)
+                    # print("\n##> recieved body : ", recieved.body, "\n\n")
+                    # if (
+                    #     recieved.header.protocol == 0
+                    #     or type(recieved.body) != bytes
+                    # ):
+                        # print("ERR : ", recieved.body)
+                    print("##> body type : ", type(recieved.body))
+                    # print("##> body content : ", recieved.body)
 
-                # msg = await conn.decode_partial_message(recieved)
+                    # msg = await conn.decode_partial_message(recieved)
 
-                # print("##> msg " )
+                    # print("##> msg " )
                 if msg:
                     async for b_msg in conn.handle_bytes_generator(msg):
                         # print(b_msg)
@@ -151,6 +153,7 @@ class WebSocketManager:
                 # # print("MSG : " + str(type(msg.body)))
             except Exception as e:
                 print(e)
+                print(f"#Err: {msg}")
 
         asyncio.run(handle_msg(self.etp_connection, self, message))
 
@@ -182,7 +185,7 @@ class WebSocketManager:
             print(e)
 
     async def send_and_wait(self, req, timeout: int = 5):
-        print("SENDING " + str(req))
+        # print("SENDING " + str(req))
         msg_id = -1
         async for (
             msg_id,
@@ -197,11 +200,11 @@ class WebSocketManager:
             conn=self.etp_connection, websocket_manager=self, msg_id=msg_id, timeout=timeout
         )
         # print("Answer : \n", result)
-        print("Answer recieved")
+        # print("Answer recieved")
         return result
 
     async def send_no_wait(self, req, timeout: int = 5):
-        print("SENDING NW" + str(req))
+        # print("SENDING NW" + str(req))
         msg_id_list = []
         msg_id = -1
         async for (

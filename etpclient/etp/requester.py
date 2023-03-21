@@ -94,6 +94,13 @@ supported_objects = [
     )
 ]
 
+def findUuid(input: str) -> Optional[str]:
+    p = re.compile(UUID_REGEX)
+    result = p.search(input)
+    if result is not None:
+        return result.group() if result else None
+    else:
+        return None
 
 requestSession_msg = Message.get_object_message(
     RequestSession(
@@ -292,18 +299,44 @@ def get_close_session(reason="We have finished"):
 from etptypes.energistics.etp.v12.datatypes.data_array_types.data_array_identifier import (
     DataArrayIdentifier,
 )
+from etptypes.energistics.etp.v12.datatypes.data_array_types.get_data_subarrays_type import (
+    GetDataSubarraysType,
+)
 from etptypes.energistics.etp.v12.protocol.data_array.get_data_arrays import (
     GetDataArrays,
 )
+from etptypes.energistics.etp.v12.protocol.data_array.get_data_subarrays import (
+    GetDataSubarrays,
+)
 
-def get_data_array(uri: str, path_in_res: str):
-    return GetDataArrays(
-        data_arrays={"0" :DataArrayIdentifier(uri=uri, path_in_resource=path_in_res)}
+from etptypes.energistics.etp.v12.protocol.data_array.get_data_array_metadata import (
+    GetDataArrayMetadata,
+)
+
+def get_data_array_metadata(uri: str, path_in_res: str):
+    return GetDataArrayMetadata(
+        data_arrays={"0": DataArrayIdentifier(uri=uri, path_in_resource=path_in_res)}
     )
 
+def get_data_array(uri: str, path_in_res: str, start: int=None, count: int=None):
+    if start is not None and count is not None:
+        return GetDataSubarrays(
+            data_subarrays={
+                "0": GetDataSubarraysType(
+                    uid=DataArrayIdentifier(uri=uri, path_in_resource=path_in_res),
+                    starts=[start],
+                    counts=[count]
+                )
+            }
+        )
+    else:
+        return GetDataArrays(
+            data_arrays={"0": DataArrayIdentifier(uri=uri, path_in_resource=path_in_res)}
+        )
 
 
-def put_data_array(uuids_filter: list, epc_or_xml_file_path: str, h5_file_path: str, dataspace_name: str):
+
+async def put_data_array(uuids_filter: list, epc_or_xml_file_path: str, h5_file_path: str, dataspace_name: str):
     result = []
     if epc_or_xml_file_path.endswith(".epc"):
         zfile = zipfile.ZipFile(epc_or_xml_file_path, 'r')
@@ -325,19 +358,21 @@ def put_data_array(uuids_filter: list, epc_or_xml_file_path: str, h5_file_path: 
 
 
 async def put_data_array_sender(websocket, uuids_filter: list, epc_or_xml_file_path: str, h5_file_path: str, dataspace_name: str):
+    print(f"uuids_filter : {uuids_filter} epc_or_xml_file_path : {epc_or_xml_file_path} h5_file_path : {h5_file_path} dataspace_name : {dataspace_name} ")
     if epc_or_xml_file_path.endswith(".epc"):
         zfile = zipfile.ZipFile(epc_or_xml_file_path, 'r')
         for zinfo in zfile.infolist():
             if zinfo.filename.endswith(".xml") and findUuid(zinfo.filename) != None:
                 uuid = findUuid(zinfo.filename)
                 if uuids_filter is None or len(uuids_filter)==0 or uuid in uuids_filter:
-                    # print("Uuid : ", uuid)
+                    print("Uuid : ", uuid)
                     with zfile.open(zinfo.filename) as myfile:
                         for pda in generate_put_data_arrays(myfile.read().decode("utf-8"), h5_file_path, dataspace_name):
+                            print(type(pda), pda)
                             try:
-                                yield websocket.send_no_wait(pda)
+                                yield await websocket.send_no_wait(pda)
                             except Exception as e:
-                                print(e)
+                                print("ERROR : ", e)
                 else:
                     pass
                     # print("Not imported ", uuid)
@@ -346,7 +381,7 @@ async def put_data_array_sender(websocket, uuids_filter: list, epc_or_xml_file_p
         with open(epc_or_xml_file_path) as f:
             for pda in generate_put_data_arrays(f.read().decode("utf-8"), h5_file_path, dataspace_name):
                 try:
-                    yield websocket.send_no_wait(pda)
+                    yield await websocket.send_no_wait(pda)
                 except Exception as e:
                     print(e)
 
