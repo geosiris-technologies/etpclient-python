@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2022-2023 Geosiris.
+# SPDX-License-Identifier: Apache-2.0
+#
 from typing import Union, AsyncGenerator, Optional
 from datetime import datetime
 import uuid as pyUUID

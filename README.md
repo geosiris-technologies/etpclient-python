@@ -1,3 +1,7 @@
+<!--
+Copyright (c) 2022-2023 Geosiris.
+SPDX-License-Identifier: Apache-2.0
+-->
 # etpclient
 
 poetry run python .\src\etpclient\main.py --host MY_HOST --port 80 --sub-path etp  -t https://rddms.centralus.cloudapp.azure.com/rest/Reservoir/v1/auth/token
