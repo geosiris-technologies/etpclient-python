@@ -1,5 +1,13 @@
 import re
 import zipfile
+from lxml import etree
+
+from lxml.etree import (
+    Element,
+    ElementTree,
+    fromstring,
+    XPath,
+)
 
 from typing import List
 
@@ -72,6 +80,22 @@ from etpclient.etp.h5_handler import (
 )
 
 
+ENERGYML_NAMESPACES = {
+    "eml": "http://www.energistics.org/energyml/data/commonv2",
+    "prodml": "http://www.energistics.org/energyml/data/prodmlv2",
+    "witsml": "http://www.energistics.org/energyml/data/witsmlv2",
+    "resqml": "http://www.energistics.org/energyml/data/resqmlv2",
+}
+
+
+def energyml_xpath(tree: Element, xpath: str) -> Optional[list]:
+    """ A xpath research that knows energyml namespaces """
+    try:
+        return XPath(xpath, namespaces=ENERGYML_NAMESPACES)(tree)
+    except TypeError:
+        return None
+
+
 etp_version = Version(major=1, minor=2, revision=0, patch=0)
 local_protocols = [
     SupportedProtocol(
@@ -101,6 +125,20 @@ def findUuid(input: str) -> Optional[str]:
         return result.group() if result else None
     else:
         return None
+
+
+def find_uuid_in_elt(root: Element) -> str:
+    _uuids = energyml_xpath(root, "@uuid")
+    if len(_uuids) <= 0:
+        _uuids = energyml_xpath(root, "@UUID")
+    return _uuids[0]
+
+
+def find_uuid_in_xml(xml_content: bytes) -> str:
+    tree = ElementTree(fromstring(xml_content))
+    root = tree.getroot()
+    return find_uuid_in_elt(root)
+
 
 requestSession_msg = Message.get_object_message(
     RequestSession(
@@ -225,10 +263,12 @@ def put_data_object_by_path(path: str, dataspace_name: str = None):
             do_lst = {}
             zfile = zipfile.ZipFile(path, 'r')
             for zinfo in zfile.infolist():
-                if zinfo.filename.endswith(".xml") and findUuid(zinfo.filename) != None:
+                if zinfo.filename.endswith(".xml"):
                     # print('%s (%s --> %s)' % (zinfo.filename, zinfo.file_size, zinfo.compress_size))
                     with zfile.open(zinfo.filename) as myfile:
-                        do_lst[len(do_lst)] = _create_data_object(myfile.read().decode("utf-8"), dataspace_name)
+                        file_content = myfile.read()
+                        if(findUuid(zinfo.filename) != None or find_uuid_in_xml(file_content) != None):
+                            do_lst[len(do_lst)] = _create_data_object(file_content.decode("utf-8"), dataspace_name)
             zfile.close()
             result.append(PutDataObjects(data_objects=do_lst))
         else:
