@@ -135,7 +135,7 @@ def find_uuid_in_elt(root: Element) -> str:
     _uuids = energyml_xpath(root, "@uuid")
     if len(_uuids) <= 0:
         _uuids = energyml_xpath(root, "@UUID")
-    return _uuids[0]
+    return _uuids[0] if len(_uuids) > 0 else None
 
 
 def find_uuid_in_xml(xml_content: bytes) -> str:
@@ -255,30 +255,32 @@ def delete_dataspace(dataspace_names:str):
 
 def put_data_object_by_path(path: str, dataspace_name: str = None):
     result = []
-    try:
-        if path.endswith(".xml"):
+    # try:
+    if path.endswith(".xml"):
 
-            f = open(path)
-            f_content = f.read()
-            
-            result.append(put_data_object(f_content, dataspace_name))
-            f.close()
-        elif path.endswith(".epc"):
-            do_lst = {}
-            zfile = zipfile.ZipFile(path, 'r')
-            for zinfo in zfile.infolist():
-                if zinfo.filename.endswith(".xml"):
-                    # print('%s (%s --> %s)' % (zinfo.filename, zinfo.file_size, zinfo.compress_size))
-                    with zfile.open(zinfo.filename) as myfile:
-                        file_content = myfile.read()
-                        if(findUuid(zinfo.filename) != None or find_uuid_in_xml(file_content) != None):
-                            do_lst[len(do_lst)] = _create_data_object(file_content.decode("utf-8"), dataspace_name)
-            zfile.close()
-            result.append(PutDataObjects(data_objects=do_lst))
-        else:
-            print("Unkown file type")
-    except Exception as e:
-        print("Except : ", e)
+        f = open(path)
+        f_content = f.read()
+        
+        result.append(put_data_object(f_content, dataspace_name))
+        f.close()
+    elif path.endswith(".epc"):
+        do_lst = {}
+        zfile = zipfile.ZipFile(path, 'r')
+        for zinfo in zfile.infolist():
+            if zinfo.filename.endswith(".xml"):
+                # print('%s (%s --> %s)' % (zinfo.filename, zinfo.file_size, zinfo.compress_size))
+                with zfile.open(zinfo.filename) as myfile:
+                    file_content = myfile.read()
+                    if(findUuid(zinfo.filename) != None or find_uuid_in_xml(file_content) != None):
+                        do_lst[len(do_lst)] = _create_data_object(file_content.decode("utf-8"), dataspace_name)
+                    else:
+                        print(f"Ignoring file : {zinfo.filename}")
+        zfile.close()
+        result.append(PutDataObjects(data_objects=do_lst))
+    else:
+        print("Unkown file type")
+    # except Exception as e:
+    #     print("Except : ", e)
     
     return result
 
