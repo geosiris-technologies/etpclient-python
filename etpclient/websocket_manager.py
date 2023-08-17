@@ -1,3 +1,11 @@
+#
+# Copyright (c) 2022-2023 Geosiris.
+# SPDX-License-Identifier: Apache-2.0
+#
+import os
+from fastavro import reader, schemaless_reader, schemaless_writer, writer
+from etptypes import avro_schema
+import json
 import sys
 import websocket
 import asyncio
@@ -124,7 +132,7 @@ class WebSocketManager:
         return self.etp_connection.is_connected
 
     def on_message(self, ws, message):
-        print("ON_MSG : ")
+        # print("ON_MSG : ")
         # print("ON_MSG : ", message)
 
         async def handle_msg(
@@ -136,18 +144,20 @@ class WebSocketManager:
                     message,
                     dict_map_pro_to_class=ETPConnection.generic_transition_table,
                 )
-                print("\n##> recieved header : ", recieved.header, "\n\n")
-                # if (
-                #     recieved.header.protocol == 0
-                #     or type(recieved.body) != bytes
-                # ):
-                # print("ERR : ", recieved.body)
-                print("##> body type : ", type(recieved.body))
-                # print("##> body content : ", recieved.body)
+                if recieved.is_final_msg():
+                    print("\n##> recieved header : ", recieved.header)
+                    # print("\n##> recieved body : ", recieved.body, "\n\n")
+                    # if (
+                    #     recieved.header.protocol == 0
+                    #     or type(recieved.body) != bytes
+                    # ):
+                    # print("ERR : ", recieved.body)
+                    print("##> body type : ", type(recieved.body))
+                    # print("##> body content : ", recieved.body)
 
-                # msg = await conn.decode_partial_message(recieved)
+                    # msg = await conn.decode_partial_message(recieved)
 
-                # print("##> msg " )
+                    # print("##> msg " )
                 if msg:
                     async for b_msg in conn.handle_bytes_generator(msg):
                         # print(b_msg)
@@ -172,6 +182,7 @@ class WebSocketManager:
                 # # print("MSG : " + str(type(msg.body)))
             except Exception as e:
                 print(e)
+                print(f"#Err: {msg}")
 
         asyncio.run(handle_msg(self.etp_connection, self, message))
 
@@ -203,7 +214,10 @@ class WebSocketManager:
             print(e)
 
     async def send_and_wait(self, req, timeout: int = 5):
-        print("SENDING " + str(req))
+        # print("SENDING " + str(req))
+        # print("SENDING NW")
+        # await self.print_message(req)
+
         msg_id = -1
         async for (
             msg_id,
@@ -221,11 +235,14 @@ class WebSocketManager:
             timeout=timeout,
         )
         # print("Answer : \n", result)
-        print("Answer recieved")
+        # print("Answer recieved")
         return result
 
     async def send_no_wait(self, req, timeout: int = 5):
-        print("SENDING NW" + str(req))
+        # print("SENDING NW" + str(req))
+        # print("SENDING NW")
+        # await self.print_message(req)
+
         msg_id_list = []
         msg_id = -1
         async for (
@@ -238,3 +255,23 @@ class WebSocketManager:
             msg_id_list.append(msg_id)
 
         return msg_id_list
+
+    async def print_message(self, req):
+        try:
+            # Writing
+            with open("test_unserialAvro_header.avro", "wb") as out:
+                schemaless_writer(
+                    out,
+                    json.loads(avro_schema(type(req))),
+                    req.dict(by_alias=True),
+                )
+            print("====== header ======")
+            # Reading
+            with open("test_unserialAvro_header.avro", "rb") as fo:
+                r_dict = schemaless_reader(
+                    fo, json.loads(avro_schema(type(req)))
+                )
+                for record in r_dict:
+                    print(f"{record}: {r_dict[record]}")
+        finally:
+            os.remove("test_unserialAvro_header.avro")

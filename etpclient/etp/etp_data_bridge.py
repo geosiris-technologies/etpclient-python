@@ -58,35 +58,6 @@ from etpproto.error import (
 from etpproto.client_info import ClientInfo
 
 
-# from gabbro.utils import get_class_attributes, refactor_object_type
-
-
-# from gabbro.settings import(
-# ETP_SUPPORTED_TYPES
-# )
-
-# from gabbro.dataspace.ingestion import(
-#     ingest_xml,
-#     ingest_xmls,
-#     delete_objects,
-#     read_energyml_uuid_type_version
-# )
-
-# from gabbro.database.resqml_graph import (
-#     request_objects,
-#     get_firp_connected_objects,
-#     get_deleted_objects,
-#     get_last_object_version,
-#     count_distinct_accessible_objects_per_type,
-# )
-
-# from gabbro.models.data_manager import DataManager, dataspaces_handler
-
-# from gabbro.dataspace.dataspace_db import (
-#     DataspaceDB,
-# )
-
-
 class ETPDataBridge:
     requestPage: str = "request"
     requestObjects: str = "request"
@@ -153,7 +124,7 @@ class ETPDataBridge:
     ) -> (PutDataObjectsResponse, ETPError):
         print(client_info.ip, ":", "@handle_put_data_objects ")
         files_to_ingest = []
-        parsed_uris = []
+        # parsed_uris = []
 
         response = []
 
@@ -308,7 +279,6 @@ class ETPDataBridge:
             parsed_context_uri = parse_uri(uri)
             # print(client_info.ip, ":", "### uri", uri, " -- ", parsed_context_uri)
             uuid = ""
-            dataspace = None
             if isinstance(parsed_context_uri, DataObjectURI):
                 uuid = parsed_context_uri.uuid
             elif len(uri) > 0:
@@ -384,7 +354,7 @@ class ETPDataBridge:
             if (
                 not uri or uri.lower() == "eml:///"
             ):  # pas de filtre, on garde tout
-                myobj = {"requesttype": "listobjects"}
+                # myobj = {"requesttype": "listobjects"}
                 data_manager = dataspaces_handler.get_data_manager()
                 # r = requests.post(self.url + "/" + self.requestPage, data=myobj)
                 req_answer = request_objects(
@@ -392,7 +362,7 @@ class ETPDataBridge:
                 )
                 # req_answer = json.loads(r.text)
             else:
-                myobj = {"requesttype": "listobjects"}
+                # myobj = {"requesttype": "listobjects"}
 
                 parsed_context_uri = parse_uri(uri)
 
@@ -476,8 +446,7 @@ class ETPDataBridge:
                         "\n",
                     )
                 elif isinstance(parsed_context_uri, DataspaceUri):
-                    dataspace = parsed_context_uri.dataspace
-
+                    print(parsed_context_uri.dataspace)
                 else:
                     print(
                         client_info.ip,

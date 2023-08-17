@@ -56,7 +56,7 @@ class ETPNotifyer:
 
     @classmethod
     async def trigger(cls, notif_content: Any):
-        print(client_info.ip, ": #ETPNotiyer.trigger")
+        print(": #ETPNotiyer.trigger")
 
         # a notification is recieved from the server after something occured (e.g. a modification)
 

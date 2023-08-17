@@ -1,10 +1,18 @@
+#
+# Copyright (c) 2022-2023 Geosiris.
+# SPDX-License-Identifier: Apache-2.0
+#
 from typing import Union, AsyncGenerator, Optional
 from datetime import datetime
 import uuid as pyUUID
 import pprint
+import lxml.etree as etree
+import json
 
 from etpproto.messages import Message
 from etptypes.energistics.etp.v12.datatypes.message_header import MessageHeader
+
+from etptypes import avro_schema
 
 from etpproto.connection import CommunicationProtocol, Protocol, ETPConnection
 from etpproto.client_info import ClientInfo
@@ -252,6 +260,15 @@ class myDiscoveryProtocol(DiscoveryHandler):
             print_resource(res)
         yield
 
+    async def on_protocol_exception(
+        self,
+        msg: ProtocolException,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[bytes, None]:
+        print("Error recieved : " + str(msg))
+        yield
+
 
 #     ____        __
 #    / __ \____ _/ /_____ __________  ____ _________  _____
@@ -327,6 +344,15 @@ class myDataspaceHandler(DataspaceHandler):
         yield
         # raise NotSupportedError()
 
+    async def on_protocol_exception(
+        self,
+        msg: ProtocolException,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print("Error recieved : " + str(msg))
+        yield
+
 
 #    _____ __                     ____             __                   __
 #   / ___// /_____  ________     / __ \_________  / /_____  _________  / /
@@ -377,7 +403,20 @@ class myStoreProtocol(StoreHandler):
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         print("# on_get_data_objects_response")
-        pretty_p.pprint(msg)
+        # pretty_p.pprint(msg)
+        for do in msg.data_objects.values():
+            form = do.format_.lower()
+            try:
+                if form == "xml":
+                    print(do.data.decode("utf-8"))
+                elif form == "json":
+                    json.dumps(
+                        json.loads(do.data.data.decode("utf-8")), indent=4
+                    )
+            except Exception as e:
+                print("\n\n=============", e, "\n")
+                pretty_p.pprint(do)
+
         yield
 
     async def on_put_data_objects_response(
@@ -387,6 +426,15 @@ class myStoreProtocol(StoreHandler):
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         pretty_p.pprint(msg)
+        yield
+
+    async def on_protocol_exception(
+        self,
+        msg: ProtocolException,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print("Error recieved : " + str(msg))
         yield
 
 
@@ -413,6 +461,15 @@ class myDataArrayHandler(DataArrayHandler):
         yield Message.get_object_message(etpObj, correlation_id=correlation_id)
         yield etpErr
 
+    async def on_get_data_array_metadata_response(
+        self,
+        msg: GetDataArrayMetadataResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(client_info.ip, msg)
+        yield
+
     async def on_get_data_arrays(
         self,
         msg: GetDataArrays,
@@ -435,6 +492,24 @@ class myDataArrayHandler(DataArrayHandler):
         yield Message.get_object_message(etpObj, correlation_id=correlation_id)
         yield etpErr
 
+    async def on_get_data_arrays_response(
+        self,
+        msg: GetDataArraysResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(client_info.ip, msg)
+        yield
+
+    async def on_get_data_subarrays_response(
+        self,
+        msg: GetDataSubarraysResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(client_info.ip, msg)
+        yield
+
     async def on_put_data_arrays(
         self,
         msg: PutDataArrays,
@@ -446,6 +521,24 @@ class myDataArrayHandler(DataArrayHandler):
         yield Message.get_object_message(etpObj, correlation_id=correlation_id)
         yield etpErr
 
+    async def on_put_data_arrays_response(
+        self,
+        msg: PutDataArraysResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(client_info.ip, msg)
+        yield
+
+    async def on_protocol_exception(
+        self,
+        msg: ProtocolException,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print("Error recieved : " + str(msg))
+        yield
+
 
 #    _____                              __           ________
 #   / ___/__  ______  ____  ____  _____/ /____  ____/ /_  __/_  ______  ___  _____
@@ -456,7 +549,7 @@ class myDataArrayHandler(DataArrayHandler):
 
 
 @ETPConnection.on(CommunicationProtocol.SUPPORTED_TYPES)
-class myStoreProtocol(SupportedTypesHandler):
+class mySupportedTypesProtocol(SupportedTypesHandler):
     async def on_get_supported_types(
         self,
         msg: GetSupportedTypes,
@@ -467,6 +560,15 @@ class myStoreProtocol(SupportedTypesHandler):
         etpObj, etpErr = await etp_bridge.handle_request(msg, client_info)
         yield Message.get_object_message(etpObj, correlation_id=correlation_id)
         yield etpErr
+
+    async def on_protocol_exception(
+        self,
+        msg: ProtocolException,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[bytes, None]:
+        print("Error recieved : " + str(msg))
+        yield
 
 
 #    _____                              ______
@@ -481,7 +583,7 @@ class myStoreProtocol(SupportedTypesHandler):
 def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
     protocolDict = supportedProtocolList_fun()
 
-    pretty_p.pprint(protocolDict)
+    # pretty_p.pprint(protocolDict)
 
     return ServerCapabilities(
         application_name="etpproto",
@@ -491,26 +593,46 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
                 lambda d: SupportedProtocol(
                     protocol=d.protocol,
                     protocol_version=d.protocol_version,
-                    role=d.role,
+                    role="store",
                     protocol_capabilities=d.protocol_capabilities,
                 ),
                 protocolDict,
             )
         ),
         supported_data_objects=[
+            # SupportedDataObject(
+            #     qualified_type="resqml20.*",
+            #     data_object_capabilities={}),
+            # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True}),
+            # SupportedDataObject(
+            #     qualified_type="resqml22.*",
+            #     data_object_capabilities={}),
+            #     # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True})
+            # SupportedDataObject({'dataObjectCapabilities': {'SupportsDelete': {'item': {'boolean': True}},
+            #                                           'SupportsGet': {'item': {'boolean': True}},
+            #                                           'SupportsPut': {'item': {'boolean': True}}
+            #                                           )
             SupportedDataObject(
-                qualified_type="resqml20.*", data_object_capabilities={}
+                qualified_type="eml20.*",
+                data_object_capabilities={
+                    "SupportsDelete": DataValue(item=True),
+                    "SupportsPut": DataValue(item=True),
+                    "SupportsGet": DataValue(item=True),
+                },
             ),
-            # data_object_capabilities=["get", "put", "del"]),
             SupportedDataObject(
-                qualified_type="resqml22.*", data_object_capabilities={}
+                qualified_type="resqml20.*",
+                data_object_capabilities={
+                    "SupportsDelete": DataValue(item=True),
+                    "SupportsPut": DataValue(item=True),
+                    "SupportsGet": DataValue(item=True),
+                },
             ),
-            # data_object_capabilities=["get", "put", "del"])
         ],
-        supported_compression=["string"],
+        # supported_compression=["gzip"],
         supported_formats=["xml"],
         endpoint_capabilities={
-            "MaxWebSocketMessagePayloadSize": DataValue(item=666)
+            "MaxWebSocketMessagePayloadSize": DataValue(item=4000)
         },
         supported_encodings=["binary"],
         contact_information=Contact(

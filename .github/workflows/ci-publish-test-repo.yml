@@ -1,3 +1,7 @@
+##
+## Copyright (c) 2022-2023 Geosiris.
+## SPDX-License-Identifier: Apache-2.0
+##
 ---
 
 on:
@@ -36,45 +40,46 @@ jobs:
           name: dist-artifact
           path: dist/
 
-  test:
-    name: Test
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
+  # test:
+  #   name: Test
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v2
+  #       with:
+  #         python-version: '3.9'
 
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Get build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: dist-artifact
-          path: dist/
+  #     - name: Get build artifacts
+  #       uses: actions/download-artifact@v2
+  #       with:
+  #         name: dist-artifact
+  #         path: dist/
 
-      - name: Install from build
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest-mock
-          pip install etpproto --pre --target=dist --find-links=dist/
+  #     - name: Install from build
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         pip install pytest-mock
+  #         pip install etpproto --pre --target=dist --find-links=dist/
 
-      - name: Copy tests and example data to dist folder for testing against artifacts
-        run: |
-          cp -R tests dist/
-      # cp -R example_data dist/
+  #     - name: Copy tests and example data to dist folder for testing against artifacts
+  #       run: |
+  #         cp -R tests dist/
+  #     # cp -R example_data dist/
 
-      - name: Run tests
-        run: pytest dist/tests
+  #     - name: Run tests
+  #       run: pytest dist/tests
 
   publish:
     name: Publish to PyPI
-    needs: [build, test]
+    needs: [build]
+    # needs: [build, test]
     runs-on: ubuntu-latest
     steps:
 

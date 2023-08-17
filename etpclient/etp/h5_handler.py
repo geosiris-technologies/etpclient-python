@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2022-2023 Geosiris.
+# SPDX-License-Identifier: Apache-2.0
+#
 import h5py
 
 from etpclient.utils import (
@@ -56,7 +60,9 @@ def generate_put_data_arrays(
     for path_in_hdf in search_all_element_value(
         obj_dict, "PathInExternalFile"
     ) + search_all_element_value(obj_dict, "PathInHdfFile"):
+        print(f"search in h5 {path_in_hdf}")
         data, shape, dtype = h5_search_dataset(h5_file_path, path_in_hdf)
+        print(f"\t==> shape {shape}")
         pda_dict = {
             "dataArrays": {
                 "0": {

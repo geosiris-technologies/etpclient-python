@@ -1,4 +1,7 @@
-import json
+#
+# Copyright (c) 2022-2023 Geosiris.
+# SPDX-License-Identifier: Apache-2.0
+#
 import re
 from lxml import etree
 
@@ -51,17 +54,17 @@ def energyml_namespace_to_pkg_name(namespace):
 # =========================
 
 
-def get_xml_dict_from_path(file_path):
+def get_xml_dict_from_path(file_path: str):
     with open(file_path, "r") as f:
         return get_xml_dict_from_string(f.read())
     return None
 
 
-def get_xml_dict_from_string(file_content):
+def get_xml_dict_from_string(file_content: str):
     return xml_tree_to_dict(get_xml_tree_string(file_content))
 
 
-def get_xml_tree_from_path(file_path):
+def get_xml_tree_from_path(file_path: str):
     with open(file_path, "r") as f:
         return get_xml_tree_string(f.read())
     return None
@@ -239,7 +242,7 @@ def xml_tree_to_dict(tree, root=True):
 def search_element_has_child(tree_dict, child_name: str, wild=True) -> list:
     result = []
     try:
-        if type(tree_dict) == type([]):
+        if isinstance(tree_dict, list):
             for child in tree_dict:
                 result = result + search_element_has_child(
                     child, child_name, wild
@@ -255,7 +258,7 @@ def search_element_has_child(tree_dict, child_name: str, wild=True) -> list:
                 result = result + search_element_has_child(
                     tree_dict[child_key], child_name, wild
                 )
-    except Exception as e:
+    except Exception:
         pass
     return result
 
@@ -263,10 +266,10 @@ def search_element_has_child(tree_dict, child_name: str, wild=True) -> list:
 def get_direct_child_from_tag(tree_dict, child_tag: str, wild=True):
     result = []
     try:
-        if type(tree_dict) == type([]):
+        if isinstance(tree_dict, list):
             for child in tree_dict:
                 result = result + search_element_has_child(
-                    child, child_name, wild1
+                    child, child_tag, wild
                 )
         else:
             for child_key in tree_dict.keys():
@@ -276,7 +279,7 @@ def get_direct_child_from_tag(tree_dict, child_tag: str, wild=True):
                     key == child_tag
                 ):
                     result.append(tree_dict[child_key])
-    except Exception as e:
+    except Exception:
         pass
     return result
 
@@ -284,7 +287,7 @@ def get_direct_child_from_tag(tree_dict, child_tag: str, wild=True):
 def search_all_element_value(tree_dict, child_name: str, wild=True) -> list:
     result = []
     try:
-        if type(tree_dict) == type([]):
+        if isinstance(tree_dict, list):
             for child in tree_dict:
                 result = result + search_all_element_value(
                     child, child_name, wild
@@ -300,7 +303,7 @@ def search_all_element_value(tree_dict, child_name: str, wild=True) -> list:
                 result = result + search_all_element_value(
                     tree_dict[child_key], child_name, wild
                 )
-    except Exception as e:
+    except Exception:
         pass
     return result
 
