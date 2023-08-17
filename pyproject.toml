@@ -83,7 +83,6 @@ source = ["etpclient"]
 [tool.poetry.scripts]
 client = "etpclient.main:main"
 
-
 [tool.poetry-dynamic-versioning]
 enable = true
 vcs = "git"

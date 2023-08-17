@@ -2,7 +2,6 @@
 # Copyright (c) 2022-2023 Geosiris.
 # SPDX-License-Identifier: Apache-2.0
 #
-import json
 import re
 from lxml import etree
 
@@ -13,18 +12,18 @@ def get_class_attributes(cls):
     if 'properties' in props:
         props = props['properties']
         for p_name in props:
-            att_and_type_list.append( (p_name, #props[p_name]['title'], 
-                                        props[p_name]['type']) )
+            att_and_type_list.append((p_name,  # props[p_name]['title'], 
+                                        props[p_name]['type']))
     return att_and_type_list
 
-def refactor_object_type(obj_type:str):
+def refactor_object_type(obj_type: str):
     if obj_type.lower().startswith("obj_"):
         return obj_type[4:]
     return obj_type
 
 ##################
 
-def parse_schema_version(schema_version:str):
+def parse_schema_version(schema_version:  str):
     return re.compile(r'([^"]*[a-zA-Z\s])?([0-9][0-9\.]*)$').search(schema_version).group(2)
 
 def parse_schema_version_flat(schema_version:str):
@@ -43,18 +42,21 @@ def energyml_namespace_to_pkg_name(namespace):
 
 # =========================
 
-def get_xml_dict_from_path(file_path):
+def get_xml_dict_from_path(file_path: str):
     with open(file_path, 'r') as f:
         return get_xml_dict_from_string(f.read())
     return  None
 
-def get_xml_dict_from_string(file_content):
+
+def get_xml_dict_from_string(file_content: str):
     return xml_tree_to_dict(get_xml_tree_string(file_content))
 
-def get_xml_tree_from_path(file_path):
+
+def get_xml_tree_from_path(file_path: str):
     with open(file_path, 'r') as f:
         return get_xml_tree_string(f.read())
     return  None
+
 
 def get_xml_tree_string(file_content):
     return etree.fromstring(bytes(bytearray(file_content, encoding='utf-8')))
@@ -70,11 +72,13 @@ def get_xml_tree_string(file_content):
 def xml_get_namespace(tree):
     return tree.nsmap[tree.prefix]
 
+
 def xml_get_type(tree):
     tag = tree.tag
     if '}' in tag:
         tag = tag[tag.rindex('}')+1:]
     return tag
+
 
 def xml_get_attrib(tree, attrib_name, wild=True):
     for k in tree.attrib:
@@ -82,11 +86,14 @@ def xml_get_attrib(tree, attrib_name, wild=True):
             return tree.attrib[k]
     return None
 
+
 def xml_get_schema_version_flat(tree):
     return parse_schema_version_flat(xml_get_attrib(tree, "schemaVersion"))
 
+
 def xml_get_schema_version(tree):
     return parse_schema_version(xml_get_attrib(tree, "schemaVersion"))
+
 
 def xml_get_obj_version(tree):
     obj_version = xml_get_attrib(tree, "objectVersion")
@@ -94,8 +101,10 @@ def xml_get_obj_version(tree):
         return obj_version
     return "0"
 
+
 def xml_get_uuid(tree):
     return xml_get_attrib(tree, "uuid")
+
 
 def xml_get_data_object_type(tree):
     return (energyml_namespace_to_pkg_name(xml_get_namespace(tree)) + xml_get_schema_version_flat(tree) 

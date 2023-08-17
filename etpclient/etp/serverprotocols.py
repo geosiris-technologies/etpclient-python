@@ -12,6 +12,8 @@ import json
 from etpproto.messages import Message
 from etptypes.energistics.etp.v12.datatypes.message_header import MessageHeader
 
+from etptypes import avro_schema
+
 from etpproto.connection import CommunicationProtocol, Protocol, ETPConnection
 from etpproto.client_info import ClientInfo
 
@@ -544,7 +546,7 @@ class myStoreProtocol(SupportedTypesHandler):
 def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
     protocolDict = supportedProtocolList_fun()
 
-    pretty_p.pprint(protocolDict)
+    # pretty_p.pprint(protocolDict)
 
     return ServerCapabilities(
         application_name="etpproto",
@@ -554,23 +556,42 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
                 lambda d: SupportedProtocol(
                     protocol=d.protocol,
                     protocol_version=d.protocol_version,
-                    role=d.role,
+                    role="store",
                     protocol_capabilities=d.protocol_capabilities,
                 ),
                 protocolDict,
             )
         ),
         supported_data_objects=[
+            # SupportedDataObject(
+            #     qualified_type="resqml20.*", 
+            #     data_object_capabilities={}),  
+                # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True}),
+            # SupportedDataObject(
+            #     qualified_type="resqml22.*", 
+            #     data_object_capabilities={}),
+            #     # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True})
+
+            # SupportedDataObject({'dataObjectCapabilities': {'SupportsDelete': {'item': {'boolean': True}},
+            #                                           'SupportsGet': {'item': {'boolean': True}},
+            #                                           'SupportsPut': {'item': {'boolean': True}}
+            #                                           )
+            SupportedDataObject(
+                qualified_type="eml20.*", 
+                data_object_capabilities={
+                    'SupportsDelete': DataValue(item=True),
+                    'SupportsPut': DataValue(item=True),
+                    'SupportsGet': DataValue(item=True)
+                }),
             SupportedDataObject(
                 qualified_type="resqml20.*", 
-                data_object_capabilities={}),  
-                # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True}),
-            SupportedDataObject(
-                qualified_type="resqml22.*", 
-                data_object_capabilities={}),
-                # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True})
+                data_object_capabilities={
+                    'SupportsDelete': DataValue(item=True),
+                    'SupportsPut': DataValue(item=True),
+                    'SupportsGet': DataValue(item=True)
+                }),
         ],
-        supported_compression=["string"],
+        # supported_compression=["gzip"],
         supported_formats=["xml"],
         endpoint_capabilities={
             'MaxWebSocketMessagePayloadSize' : DataValue(item=4000)

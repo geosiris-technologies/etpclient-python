@@ -31,8 +31,8 @@ def helper():
 \tQuit : hard quit (no CloseSession sent)
 \tCloseSession : close this session
 
-\tGetDataArrayMetadata  [URI] [PATH_IN_RESOURCE] 
-\tGetDataArray          [URI] [PATH_IN_RESOURCE] 
+\tGetDataArrayMetadata  [URI] [PATH_IN_RESOURCE]
+\tGetDataArray          [URI] [PATH_IN_RESOURCE]
 \tGetDataSubArray       [URI] [PATH_IN_RESOURCE] [START] [COUNT]
 \tPutDataArray          [[UUIDS]]* [DATASPACE_NAME] [EPC_FILE_PATH] [H5_FILE_PATH]
 
@@ -57,7 +57,7 @@ def wait_symbol(nb):
         return "\\"
 
 
-def get_verified_url(url: str, prefix:list[str]=["http://", "https://"]):
+def get_verified_url(url: str, prefix: list[str] = ["http://", "https://"]):
     for p in prefix:
         if url.lower().startswith(p.lower()):
             return url
@@ -70,9 +70,11 @@ def get_token(get_token_url: str):
         return requests.get(get_verified_url(get_token_url)).json()["token"]
     return None
 
+
 def end_message(reason: str = None):
     
     print("Bye bye")
+
 
 async def client(
     serv_url=None,
@@ -81,6 +83,7 @@ async def client(
     serv_username=None,
     serv_password=None,
     serv_get_token_url=None,
+    serv_token=None,
 ):
     serv_uri = (
         str(serv_url)
@@ -109,7 +112,7 @@ async def client(
     pretty_p.pprint(json.loads(server_caps_txt))
     print("<====== SERVER CAPS\n")
 
-    wsm = WebSocketManager("ws://" + serv_uri, username = serv_username, password = serv_password, token = get_token(serv_get_token_url))
+    wsm = WebSocketManager("ws://" + serv_uri, username=serv_username, password=serv_password, token=get_token(serv_get_token_url) or serv_token)
     cpt_wait = 0
     time_step = 0.01
     while not wsm.is_connected() and (cpt_wait * time_step < 30):
@@ -151,7 +154,7 @@ async def client(
 
         elif a.lower().startswith("putdataobject"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            for putDataObj in put_data_object_by_path(args[1], args[2] if len(args)>2 else None):
+            for putDataObj in put_data_object_by_path(args[1], args[2] if len(args) > 2 else None):
                 result = await wsm.send_no_wait(putDataObj)
                 if result:
                     pretty_p.pprint(result)
@@ -230,7 +233,7 @@ async def client(
         elif a.lower().startswith("putdataarray"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             try:
-                if len(args)<3:
+                if len(args) < 3:
                     print("Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH")
                 else:
                     uuid_list = args[1:-3] if len(args) > 4 else []
@@ -280,6 +283,7 @@ async def client(
 
     end_message()
 
+
 def main():
 
     try:
@@ -301,6 +305,7 @@ def main():
                 serv_username="",
                 serv_password="",
                 serv_get_token_url="",
+                serv_token="",
             )
         )
         # ^-- https://docs.python.org/3/library/asyncio-task.html#task-object
@@ -332,7 +337,10 @@ def main():
             "--password", "-p", type=str, help="The user password"
         )
         parser.add_argument(
-            "--token-url", "-t", type=str, help="The server get token url"
+            "--token-url", type=str, help="The server get token url"
+        )
+        parser.add_argument(
+            "--token", "-t", type=str, help="An access token"
         )
         args = parser.parse_args()
 
@@ -344,6 +352,7 @@ def main():
                 serv_username=args.username,
                 serv_password=args.password,
                 serv_get_token_url=args.token_url,
+                serv_token=args.token,
             )
         )
 

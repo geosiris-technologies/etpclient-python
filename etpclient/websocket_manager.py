@@ -2,6 +2,10 @@
 # Copyright (c) 2022-2023 Geosiris.
 # SPDX-License-Identifier: Apache-2.0
 #
+import os
+from fastavro import reader, schemaless_reader, schemaless_writer, writer
+from etptypes import avro_schema
+import json
 import sys
 import websocket
 import asyncio
@@ -190,6 +194,9 @@ class WebSocketManager:
 
     async def send_and_wait(self, req, timeout: int = 5):
         # print("SENDING " + str(req))
+        # print("SENDING NW")
+        # await self.print_message(req)
+
         msg_id = -1
         async for (
             msg_id,
@@ -209,6 +216,9 @@ class WebSocketManager:
 
     async def send_no_wait(self, req, timeout: int = 5):
         # print("SENDING NW" + str(req))
+        # print("SENDING NW")
+        # await self.print_message(req)
+
         msg_id_list = []
         msg_id = -1
         async for (
@@ -221,3 +231,17 @@ class WebSocketManager:
             msg_id_list.append(msg_id)
 
         return msg_id_list
+
+    async def print_message(self, req):
+        try:
+            # Writing
+            with open("test_unserialAvro_header.avro", "wb") as out:
+                schemaless_writer(out, json.loads(avro_schema(type(req))), req.dict(by_alias=True))
+            print("====== header ======")
+            # Reading
+            with open("test_unserialAvro_header.avro", "rb") as fo:
+                r_dict = schemaless_reader(fo, json.loads(avro_schema(type(req))))
+                for record in r_dict:
+                    print(f"{record}: {r_dict[record]}")
+        finally:
+            os.remove("test_unserialAvro_header.avro")

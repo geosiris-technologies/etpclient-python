@@ -70,6 +70,8 @@ from etptypes.energistics.etp.v12.protocol.store.get_data_objects import (
 from etptypes.energistics.etp.v12.datatypes.object.data_object import (
     DataObject,
 )
+
+from etptypes.energistics.etp.v12.datatypes.data_value import DataValue
 from etptypes.energistics.etp.v12.datatypes.object.resource import Resource
 from etptypes.energistics.etp.v12.datatypes.object.dataspace import Dataspace
 
@@ -77,7 +79,7 @@ from etptypes.energistics.etp.v12.datatypes.object.dataspace import Dataspace
 
 from etpproto.uri import *
 
-from etpproto.connection import ETPConnection
+from etpproto.connection import ETPConnection, CommunicationProtocol
 
 from etpclient.etp.h5_handler import (
     generate_put_data_arrays
@@ -103,13 +105,25 @@ def energyml_xpath(tree: Element, xpath: str) -> Optional[list]:
 etp_version = Version(major=1, minor=2, revision=0, patch=0)
 local_protocols = [
     SupportedProtocol(
-        protocol=0,
+        protocol=CommunicationProtocol.CORE.value,
         protocolVersion=etp_version,
         role="server",
         protocolCapabilities={},
     ),
     SupportedProtocol(
-        protocol=3,
+        protocol=CommunicationProtocol.DISCOVERY.value,
+        protocolVersion=etp_version,
+        role="store",
+        protocolCapabilities={},
+    ),
+    SupportedProtocol(
+        protocol=CommunicationProtocol.STORE.value,
+        protocolVersion=etp_version,
+        role="store",
+        protocolCapabilities={},
+    ),
+    SupportedProtocol(
+        protocol=CommunicationProtocol.DATASPACE.value,
         protocolVersion=etp_version,
         role="store",
         protocolCapabilities={},
@@ -117,9 +131,23 @@ local_protocols = [
 ]
 
 supported_objects = [
+    # SupportedDataObject(
+    #     qualifiedType="resqml20", dataObjectCapabilities={}  # ["resqml20"]
+    # )
     SupportedDataObject(
-        qualifiedType="resqml20", dataObjectCapabilities={}  # ["resqml20"]
-    )
+        qualified_type="eml20.*", 
+        data_object_capabilities={
+            'SupportsDelete': DataValue(item=True),
+            'SupportsPut': DataValue(item=True),
+            'SupportsGet': DataValue(item=True)
+        }),
+    SupportedDataObject(
+        qualified_type="resqml20.*", 
+        data_object_capabilities={
+            'SupportsDelete': DataValue(item=True),
+            'SupportsPut': DataValue(item=True),
+            'SupportsGet': DataValue(item=True)
+        }),
 ]
 
 def findUuid(input: str) -> Optional[str]:
@@ -139,27 +167,13 @@ def find_uuid_in_elt(root: Element) -> str:
 
 
 def find_uuid_in_xml(xml_content: bytes) -> str:
-    tree = ElementTree(fromstring(xml_content))
-    root = tree.getroot()
-    return find_uuid_in_elt(root)
-
-
-requestSession_msg = Message.get_object_message(
-    RequestSession(
-        applicationName="Geosiris etp client",
-        applicationVersion="0.0.1",
-        clientInstanceId=uuid.uuid4(),
-        requestedProtocols=local_protocols,
-        supportedDataObjects=supported_objects,
-        supportedCompression=["string"],
-        supportedFormats=["xml"],
-        currentDateTime=int(datetime.utcnow().timestamp()),
-        # endpointCapabilities=ETPConnection.server_capabilities,
-        endpointCapabilities={},
-        earliest_retained_change_time=0,
-    ),
-    msg_id=1,
-)
+    try:
+        tree = ElementTree(fromstring(xml_content))
+        root = tree.getroot()
+        return find_uuid_in_elt(root)
+    except etree.XMLSyntaxError: 
+        print("Error reading xml")
+    return None
 
 
 def request_session():
@@ -167,10 +181,10 @@ def request_session():
         applicationName="Geosiris etp client",
         applicationVersion="0.0.1",
         clientInstanceId=uuid.uuid4(),
-        requestedProtocols=local_protocols,
-        supportedDataObjects=supported_objects,
-        supportedCompression=["string"],
-        supportedFormats=["xml"],
+        requestedProtocols=local_protocols, # ETPConnection.server_capabilities.supported_protocols
+        supportedDataObjects=ETPConnection.server_capabilities.supported_data_objects,
+        supportedCompression=ETPConnection.server_capabilities.supported_compression,
+        supportedFormats=ETPConnection.server_capabilities.supported_formats,
         currentDateTime=int(datetime.utcnow().timestamp()),
         endpointCapabilities={},
         earliest_retained_change_time=0,
@@ -265,17 +279,19 @@ def put_data_object_by_path(path: str, dataspace_name: str = None):
         f.close()
     elif path.endswith(".epc"):
         do_lst = {}
-        zfile = zipfile.ZipFile(path, 'r')
-        for zinfo in zfile.infolist():
-            if zinfo.filename.endswith(".xml"):
-                # print('%s (%s --> %s)' % (zinfo.filename, zinfo.file_size, zinfo.compress_size))
-                with zfile.open(zinfo.filename) as myfile:
-                    file_content = myfile.read()
-                    if(findUuid(zinfo.filename) != None or find_uuid_in_xml(file_content) != None):
-                        do_lst[len(do_lst)] = _create_data_object(file_content.decode("utf-8"), dataspace_name)
-                    else:
-                        print(f"Ignoring file : {zinfo.filename}")
-        zfile.close()
+        try:
+            with zipfile.ZipFile(path, 'r') as zfile:
+                for zinfo in zfile.infolist():
+                    if zinfo.filename.endswith(".xml"):
+                        # print('%s (%s --> %s)' % (zinfo.filename, zinfo.file_size, zinfo.compress_size))
+                        with zfile.open(zinfo.filename) as myfile:
+                            file_content = myfile.read()
+                            if(findUuid(zinfo.filename) != None or find_uuid_in_xml(file_content) != None):
+                                do_lst[len(do_lst)] = _create_data_object(file_content.decode("utf-8"), dataspace_name)
+                            else:
+                                print(f"Ignoring file : {zinfo.filename}")
+        except FileNotFoundError:
+            print(f"File {path} not found")
         result.append(PutDataObjects(data_objects=do_lst))
     else:
         print("Unkown file type")
