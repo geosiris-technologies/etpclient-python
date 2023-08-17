@@ -410,7 +410,9 @@ class myStoreProtocol(StoreHandler):
                 if form == "xml":
                     print(do.data.decode("utf-8"))
                 elif form == "json":
-                    json.dumps(json.loads(do.data.data.decode("utf-8")), indent=4)
+                    json.dumps(
+                        json.loads(do.data.data.decode("utf-8")), indent=4
+                    )
             except Exception as e:
                 print("\n\n=============", e, "\n")
                 pretty_p.pprint(do)
@@ -434,6 +436,8 @@ class myStoreProtocol(StoreHandler):
     ) -> AsyncGenerator[Optional[Message], None]:
         print("Error recieved : " + str(msg))
         yield
+
+
 #     ____        __        ___                             ____             __                   __
 #    / __ \____ _/ /_____ _/   |  ______________ ___  __   / __ \_________  / /_____  _________  / /
 #   / / / / __ `/ __/ __ `/ /| | / ___/ ___/ __ `/ / / /  / /_/ / ___/ __ \/ __/ __ \/ ___/ __ \/ /
@@ -456,7 +460,7 @@ class myDataArrayHandler(DataArrayHandler):
         etpObj, etpErr = myDataArrayHandler.hsdsbridge.handle_metadata(msg)
         yield Message.get_object_message(etpObj, correlation_id=correlation_id)
         yield etpErr
-    
+
     async def on_get_data_array_metadata_response(
         self,
         msg: GetDataArrayMetadataResponse,
@@ -496,7 +500,6 @@ class myDataArrayHandler(DataArrayHandler):
     ) -> AsyncGenerator[Optional[Message], None]:
         print(client_info.ip, msg)
         yield
-        
 
     async def on_get_data_subarrays_response(
         self,
@@ -546,7 +549,7 @@ class myDataArrayHandler(DataArrayHandler):
 
 
 @ETPConnection.on(CommunicationProtocol.SUPPORTED_TYPES)
-class myStoreProtocol(SupportedTypesHandler):
+class mySupportedTypesProtocol(SupportedTypesHandler):
     async def on_get_supported_types(
         self,
         msg: GetSupportedTypes,
@@ -598,37 +601,38 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
         ),
         supported_data_objects=[
             # SupportedDataObject(
-            #     qualified_type="resqml20.*", 
-            #     data_object_capabilities={}),  
-                # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True}),
+            #     qualified_type="resqml20.*",
+            #     data_object_capabilities={}),
+            # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True}),
             # SupportedDataObject(
-            #     qualified_type="resqml22.*", 
+            #     qualified_type="resqml22.*",
             #     data_object_capabilities={}),
             #     # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True})
-
             # SupportedDataObject({'dataObjectCapabilities': {'SupportsDelete': {'item': {'boolean': True}},
             #                                           'SupportsGet': {'item': {'boolean': True}},
             #                                           'SupportsPut': {'item': {'boolean': True}}
             #                                           )
             SupportedDataObject(
-                qualified_type="eml20.*", 
+                qualified_type="eml20.*",
                 data_object_capabilities={
-                    'SupportsDelete': DataValue(item=True),
-                    'SupportsPut': DataValue(item=True),
-                    'SupportsGet': DataValue(item=True)
-                }),
+                    "SupportsDelete": DataValue(item=True),
+                    "SupportsPut": DataValue(item=True),
+                    "SupportsGet": DataValue(item=True),
+                },
+            ),
             SupportedDataObject(
-                qualified_type="resqml20.*", 
+                qualified_type="resqml20.*",
                 data_object_capabilities={
-                    'SupportsDelete': DataValue(item=True),
-                    'SupportsPut': DataValue(item=True),
-                    'SupportsGet': DataValue(item=True)
-                }),
+                    "SupportsDelete": DataValue(item=True),
+                    "SupportsPut": DataValue(item=True),
+                    "SupportsGet": DataValue(item=True),
+                },
+            ),
         ],
         # supported_compression=["gzip"],
         supported_formats=["xml"],
         endpoint_capabilities={
-            'MaxWebSocketMessagePayloadSize' : DataValue(item=4000)
+            "MaxWebSocketMessagePayloadSize": DataValue(item=4000)
         },
         supported_encodings=["binary"],
         contact_information=Contact(

@@ -124,7 +124,7 @@ class ETPDataBridge:
     ) -> (PutDataObjectsResponse, ETPError):
         print(client_info.ip, ":", "@handle_put_data_objects ")
         files_to_ingest = []
-        parsed_uris = []
+        # parsed_uris = []
 
         response = []
 
@@ -279,7 +279,6 @@ class ETPDataBridge:
             parsed_context_uri = parse_uri(uri)
             # print(client_info.ip, ":", "### uri", uri, " -- ", parsed_context_uri)
             uuid = ""
-            dataspace = None
             if isinstance(parsed_context_uri, DataObjectURI):
                 uuid = parsed_context_uri.uuid
             elif len(uri) > 0:
@@ -355,7 +354,7 @@ class ETPDataBridge:
             if (
                 not uri or uri.lower() == "eml:///"
             ):  # pas de filtre, on garde tout
-                myobj = {"requesttype": "listobjects"}
+                # myobj = {"requesttype": "listobjects"}
                 data_manager = dataspaces_handler.get_data_manager()
                 # r = requests.post(self.url + "/" + self.requestPage, data=myobj)
                 req_answer = request_objects(
@@ -363,7 +362,7 @@ class ETPDataBridge:
                 )
                 # req_answer = json.loads(r.text)
             else:
-                myobj = {"requesttype": "listobjects"}
+                # myobj = {"requesttype": "listobjects"}
 
                 parsed_context_uri = parse_uri(uri)
 

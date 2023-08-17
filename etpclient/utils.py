@@ -12,8 +12,9 @@ def get_class_attributes(cls):
     if "properties" in props:
         props = props["properties"]
         for p_name in props:
-            att_and_type_list.append((p_name,  # props[p_name]['title'], 
-                                        props[p_name]['type']))
+            att_and_type_list.append(
+                (p_name, props[p_name]["type"])  # props[p_name]['title'],
+            )
     return att_and_type_list
 
 
@@ -25,8 +26,6 @@ def refactor_object_type(obj_type: str):
 
 ##################
 
-def parse_schema_version(schema_version:  str):
-    return re.compile(r'([^"]*[a-zA-Z\s])?([0-9][0-9\.]*)$').search(schema_version).group(2)
 
 def parse_schema_version(schema_version: str):
     return (
@@ -54,11 +53,11 @@ def energyml_namespace_to_pkg_name(namespace):
 
 # =========================
 
+
 def get_xml_dict_from_path(file_path: str):
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return get_xml_dict_from_string(f.read())
     return None
-
 
 
 def get_xml_dict_from_string(file_content: str):
@@ -66,7 +65,7 @@ def get_xml_dict_from_string(file_content: str):
 
 
 def get_xml_tree_from_path(file_path: str):
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return get_xml_tree_string(f.read())
     return None
 
@@ -243,7 +242,7 @@ def xml_tree_to_dict(tree, root=True):
 def search_element_has_child(tree_dict, child_name: str, wild=True) -> list:
     result = []
     try:
-        if type(tree_dict) == type([]):
+        if isinstance(tree_dict, list):
             for child in tree_dict:
                 result = result + search_element_has_child(
                     child, child_name, wild
@@ -259,7 +258,7 @@ def search_element_has_child(tree_dict, child_name: str, wild=True) -> list:
                 result = result + search_element_has_child(
                     tree_dict[child_key], child_name, wild
                 )
-    except Exception as e:
+    except Exception:
         pass
     return result
 
@@ -267,10 +266,10 @@ def search_element_has_child(tree_dict, child_name: str, wild=True) -> list:
 def get_direct_child_from_tag(tree_dict, child_tag: str, wild=True):
     result = []
     try:
-        if type(tree_dict) == type([]):
+        if isinstance(tree_dict, list):
             for child in tree_dict:
                 result = result + search_element_has_child(
-                    child, child_name, wild1
+                    child, child_tag, wild
                 )
         else:
             for child_key in tree_dict.keys():
@@ -280,7 +279,7 @@ def get_direct_child_from_tag(tree_dict, child_tag: str, wild=True):
                     key == child_tag
                 ):
                     result.append(tree_dict[child_key])
-    except Exception as e:
+    except Exception:
         pass
     return result
 
@@ -288,7 +287,7 @@ def get_direct_child_from_tag(tree_dict, child_tag: str, wild=True):
 def search_all_element_value(tree_dict, child_name: str, wild=True) -> list:
     result = []
     try:
-        if type(tree_dict) == type([]):
+        if isinstance(tree_dict, list):
             for child in tree_dict:
                 result = result + search_all_element_value(
                     child, child_name, wild
@@ -304,7 +303,7 @@ def search_all_element_value(tree_dict, child_name: str, wild=True) -> list:
                 result = result + search_all_element_value(
                     tree_dict[child_key], child_name, wild
                 )
-    except Exception as e:
+    except Exception:
         pass
     return result
 

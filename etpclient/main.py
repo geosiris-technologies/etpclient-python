@@ -22,7 +22,8 @@ def helper():
     print("############")
     print("#  HELPER  #")
     print("############")
-    print("""[XXX] : replace XXX with your value
+    print(
+        """[XXX] : replace XXX with your value
 [XXX=Y] : replace XXX with your value, default is Y
 [[XXX]] : optional parameter
 
@@ -43,7 +44,8 @@ def helper():
 \tGetDataspaces
 \tPutDataspace          [NAME]
 \tDeleteDataspace       [NAME]
-""")
+"""
+    )
 
 
 def wait_symbol(nb):
@@ -160,7 +162,9 @@ async def client(
 
         elif a.lower().startswith("putdataobject"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            for putDataObj in put_data_object_by_path(args[1], args[2] if len(args) > 2 else None):
+            for putDataObj in put_data_object_by_path(
+                args[1], args[2] if len(args) > 2 else None
+            ):
                 result = await wsm.send_no_wait(putDataObj)
                 if result:
                     pretty_p.pprint(result)
@@ -170,10 +174,9 @@ async def client(
                 else:
                     print("No answer...")
 
-
         elif a.lower().startswith("getdataarraymetadata"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            if len(args) <= 2 :
+            if len(args) <= 2:
                 print("Usage : GetDataArrayMetadata [URI] [PATH_IN_RESOURCES]")
             else:
                 print(f"===> {args}\n")
@@ -187,14 +190,20 @@ async def client(
                 else:
                     print("No answer...")
 
-        elif a.lower().startswith("getdataarray") or a.lower().startswith("getdatasubarray"):
+        elif a.lower().startswith("getdataarray") or a.lower().startswith(
+            "getdatasubarray"
+        ):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            if len(args) <= 2 :
-                print("Usage : GetDataSubArray [URI] [PATH_IN_RESOURCES] [START] [COUNT]")
+            if len(args) <= 2:
+                print(
+                    "Usage : GetDataSubArray [URI] [PATH_IN_RESOURCES] [START] [COUNT]"
+                )
             else:
                 print(f"===> {args}\n")
                 if len(args) > 4:  # subArray
-                    get_data_arr = get_data_array(args[1], args[2], int(args[3]), int(args[4]))
+                    get_data_arr = get_data_array(
+                        args[1], args[2], int(args[3]), int(args[4])
+                    )
                 else:
                     get_data_arr = get_data_array(args[1], args[2])
 
@@ -241,14 +250,18 @@ async def client(
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             try:
                 if len(args) < 3:
-                    print("Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH")
+                    print(
+                        "Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH"
+                    )
                 else:
                     uuid_list = args[1:-3] if len(args) > 4 else []
                     dataspace = args[-3]
                     epc_path = args[-2]
                     h5_path = args[-1]
 
-                    async for msg_idx in put_data_array_sender(wsm, uuid_list, epc_path, h5_path, dataspace):
+                    async for msg_idx in put_data_array_sender(
+                        wsm, uuid_list, epc_path, h5_path, dataspace
+                    ):
                         print(msg_idx)
 
                     # for pda in put_data_array(uuid_list, epc_path, h5_path, dataspace):
@@ -346,9 +359,7 @@ def main():
         parser.add_argument(
             "--token-url", type=str, help="The server get token url"
         )
-        parser.add_argument(
-            "--token", "-t", type=str, help="An access token"
-        )
+        parser.add_argument("--token", "-t", type=str, help="An access token")
         args = parser.parse_args()
 
         asyncio.run(

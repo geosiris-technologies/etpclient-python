@@ -151,7 +151,7 @@ class WebSocketManager:
                     #     recieved.header.protocol == 0
                     #     or type(recieved.body) != bytes
                     # ):
-                        # print("ERR : ", recieved.body)
+                    # print("ERR : ", recieved.body)
                     print("##> body type : ", type(recieved.body))
                     # print("##> body content : ", recieved.body)
 
@@ -260,11 +260,17 @@ class WebSocketManager:
         try:
             # Writing
             with open("test_unserialAvro_header.avro", "wb") as out:
-                schemaless_writer(out, json.loads(avro_schema(type(req))), req.dict(by_alias=True))
+                schemaless_writer(
+                    out,
+                    json.loads(avro_schema(type(req))),
+                    req.dict(by_alias=True),
+                )
             print("====== header ======")
             # Reading
             with open("test_unserialAvro_header.avro", "rb") as fo:
-                r_dict = schemaless_reader(fo, json.loads(avro_schema(type(req))))
+                r_dict = schemaless_reader(
+                    fo, json.loads(avro_schema(type(req)))
+                )
                 for record in r_dict:
                     print(f"{record}: {r_dict[record]}")
         finally:
