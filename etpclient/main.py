@@ -72,7 +72,7 @@ def get_token(get_token_url: str):
 
 
 def end_message(reason: str = None):
-    
+
     print("Bye bye")
 
 
@@ -112,11 +112,17 @@ async def client(
     pretty_p.pprint(json.loads(server_caps_txt))
     print("<====== SERVER CAPS\n")
 
-    wsm = WebSocketManager("ws://" + serv_uri, username=serv_username, password=serv_password, token=get_token(serv_get_token_url) or serv_token)
+    wsm = WebSocketManager(
+        "ws://" + serv_uri,
+        username=serv_username,
+        password=serv_password,
+        token=get_token(serv_get_token_url) or serv_token,
+    )
+
     cpt_wait = 0
     time_step = 0.01
     while not wsm.is_connected() and (cpt_wait * time_step < 30):
-        if (cpt_wait * 1000 % 1000) < 5 :
+        if (cpt_wait * 1000 % 1000) < 5:
             print("\rwait for connection" + wait_symbol(cpt_wait), end="")
         cpt_wait = cpt_wait + 1
         time.sleep(time_step)
@@ -163,6 +169,7 @@ async def client(
                     pass
                 else:
                     print("No answer...")
+
 
         elif a.lower().startswith("getdataarraymetadata"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))

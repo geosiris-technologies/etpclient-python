@@ -4,7 +4,9 @@
 ##
 ---
 
-on: [push,pull_request]
+on:
+  release:
+    types: [created]
 
 jobs:
   build:
@@ -18,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
@@ -82,7 +84,7 @@ jobs:
     steps:
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
@@ -93,7 +95,7 @@ jobs:
           fetch-depth: 0
 
       - name: Get build artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: dist-artifact
           path: dist/

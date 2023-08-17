@@ -81,9 +81,7 @@ from etpproto.uri import *
 
 from etpproto.connection import ETPConnection, CommunicationProtocol
 
-from etpclient.etp.h5_handler import (
-    generate_put_data_arrays
-)
+from etpclient.etp.h5_handler import generate_put_data_arrays
 
 
 ENERGYML_NAMESPACES = {
@@ -190,6 +188,7 @@ def request_session():
         earliest_retained_change_time=0,
     )
 
+
 def get_scope(scope: str):
     if scope is not None:
         scope_lw = scope.lower()
@@ -205,7 +204,8 @@ def get_scope(scope: str):
                 return ContextScopeKind.SOURCES
     return ContextScopeKind.SELF
 
-def get_resouces(uri: str = "eml:///", depth: int = 1, scope= None):
+
+def get_resouces(uri: str = "eml:///", depth: int = 1, scope=None):
     if not uri.startswith("eml:///"):
         uri = f"eml:///dataspace('{uri}')"
     return GetResources(
@@ -234,14 +234,18 @@ def extractResqmlUuid(content: str):
 XML_TYPE_REGXP = r"<([\w]+:)?([\w]+)"
 
 
-def extractResqmlURI(content: str, dataspace_name:str = None):
+def extractResqmlURI(content: str, dataspace_name: str = None):
     pattern = re.compile(XML_TYPE_REGXP)
     # print("PATT ", pattern)
     result = pattern.search(content)
     # print("result ", result)
     return (
         "eml:///"
-        + ( "dataspace('"+dataspace_name+"')/" if dataspace_name is not None else "")
+        + (
+            "dataspace('" + dataspace_name + "')/"
+            if dataspace_name is not None
+            else ""
+        )
         + "resqml20."
         + result.group(2)
         + "("
@@ -249,21 +253,29 @@ def extractResqmlURI(content: str, dataspace_name:str = None):
         + ")"
     )
 
-def put_dataspace(dataspace_names:list):
+
+def put_dataspace(dataspace_names: list):
     ds_map = {}
     for ds_name in dataspace_names:
         ds_map[str(len(ds_map))] = Dataspace(
-                        uri="eml:///dataspace('"+ds_name+"')" if "eml:///" not in ds_name else ds_name, 
-                        store_last_write=0, 
-                        store_created=0)
+            uri="eml:///dataspace('" + ds_name + "')"
+            if "eml:///" not in ds_name
+            else ds_name,
+            store_last_write=0,
+            store_created=0,
+        )
 
     return PutDataspaces(dataspaces=ds_map)
 
 
-def delete_dataspace(dataspace_names:str):
+def delete_dataspace(dataspace_names: str):
     ds_map = {}
     for ds_name in dataspace_names:
-        ds_map[str(len(ds_map))] = "eml:///dataspace('"+ds_name+"')" if "eml:///" not in ds_name else ds_name
+        ds_map[str(len(ds_map))] = (
+            "eml:///dataspace('" + ds_name + "')"
+            if "eml:///" not in ds_name
+            else ds_name
+        )
     return DeleteDataspaces(uris=ds_map)
 
 
@@ -271,7 +283,6 @@ def put_data_object_by_path(path: str, dataspace_name: str = None):
     result = []
     # try:
     if path.endswith(".xml"):
-
         f = open(path)
         f_content = f.read()
         
@@ -297,7 +308,7 @@ def put_data_object_by_path(path: str, dataspace_name: str = None):
         print("Unkown file type")
     # except Exception as e:
     #     print("Except : ", e)
-    
+
     return result
 
 
@@ -318,6 +329,7 @@ def _create_data_object(f_content: str, dataspace_name: str = None):
         custom_data=[],
     )
     return DataObject(blob_id=real_uuid, resource=ressource, data=f_content)
+
 
 def put_data_object(f_content: str, dataspace_name: str = None):
     uri = extractResqmlURI(f_content, dataspace_name)
@@ -343,13 +355,12 @@ def get_data_object(uris: List[str], format: str = "xml"):
     uris_dict = {}
     for num, u in enumerate(uris, start=1):
         uris_dict[num] = u
-    return GetDataObjects(
-        uris=uris_dict, format_=format
-    )
+    return GetDataObjects(uris=uris_dict, format_=format)
 
 
 def get_close_session(reason="We have finished"):
     return CloseSession(reason=reason)
+
 
 #     ____        __        ___
 #    / __ \____ _/ /_____ _/   |  ______________ ___  __
@@ -380,6 +391,14 @@ def get_data_array_metadata(uri: str, path_in_res: str):
         data_arrays={"0": DataArrayIdentifier(uri=uri, path_in_resource=path_in_res)}
     )
 
+
+def get_data_array(uri: str, path_in_res: str):
+    return GetDataArrays(
+        data_arrays={
+            "0": DataArrayIdentifier(uri=uri, path_in_resource=path_in_res)
+        }
+    )
+
 def get_data_array(uri: str, path_in_res: str, start: int=None, count: int=None):
     if start is not None and count is not None:
         return GetDataSubarrays(
@@ -397,29 +416,52 @@ def get_data_array(uri: str, path_in_res: str, start: int=None, count: int=None)
         )
 
 
-
-async def put_data_array(uuids_filter: list, epc_or_xml_file_path: str, h5_file_path: str, dataspace_name: str):
+def put_data_array(
+    uuids_filter: list,
+    epc_or_xml_file_path: str,
+    h5_file_path: str,
+    dataspace_name: str,
+):
     result = []
     if epc_or_xml_file_path.endswith(".epc"):
-        zfile = zipfile.ZipFile(epc_or_xml_file_path, 'r')
+        zfile = zipfile.ZipFile(epc_or_xml_file_path, "r")
         for zinfo in zfile.infolist():
-            if zinfo.filename.endswith(".xml") and findUuid(zinfo.filename) != None:
+            if (
+                zinfo.filename.endswith(".xml")
+                and findUuid(zinfo.filename) != None
+            ):
                 uuid = findUuid(zinfo.filename)
-                if uuids_filter is None or len(uuids_filter)==0 or uuid in uuids_filter:
+                if (
+                    uuids_filter is None
+                    or len(uuids_filter) == 0
+                    or uuid in uuids_filter
+                ):
                     # print("Uuid : ", uuid)
                     with zfile.open(zinfo.filename) as myfile:
-                        result += generate_put_data_arrays(myfile.read().decode("utf-8"), h5_file_path, dataspace_name)
+                        result += generate_put_data_arrays(
+                            myfile.read().decode("utf-8"),
+                            h5_file_path,
+                            dataspace_name,
+                        )
                 else:
                     pass
                     # print("Not imported ", uuid)
         zfile.close()
     else:
         with open(epc_or_xml_file_path) as f:
-            result += generate_put_data_arrays(f.read().decode("utf-8"), h5_file_path, dataspace_name)
+            result += generate_put_data_arrays(
+                f.read().decode("utf-8"), h5_file_path, dataspace_name
+            )
     return result
 
 
-async def put_data_array_sender(websocket, uuids_filter: list, epc_or_xml_file_path: str, h5_file_path: str, dataspace_name: str):
+async def put_data_array_sender(
+    websocket,
+    uuids_filter: list,
+    epc_or_xml_file_path: str,
+    h5_file_path: str,
+    dataspace_name: str,
+):
     print(f"uuids_filter : {uuids_filter} epc_or_xml_file_path : {epc_or_xml_file_path} h5_file_path : {h5_file_path} dataspace_name : {dataspace_name} ")
     if epc_or_xml_file_path.endswith(".epc"):
         zfile = zipfile.ZipFile(epc_or_xml_file_path, 'r')
@@ -450,16 +492,25 @@ async def put_data_array_sender(websocket, uuids_filter: list, epc_or_xml_file_p
 
 if __name__ == "__main__":
 
-    for pda in put_data_array(["b710482d-0a57-4149-8196-a6beb978905e"], 
-                            "test-data/usecase1.epc", 
-                            "test-data/ALWYN_RESQML_FAULT_MBA_ACTIVITY.h5",
-                            "coucou"):
+    for pda in put_data_array(
+        ["b710482d-0a57-4149-8196-a6beb978905e"],
+        "test-data/usecase1.epc",
+        "test-data/ALWYN_RESQML_FAULT_MBA_ACTIVITY.h5",
+        "coucou",
+    ):
         print("> ", pda.data_arrays["0"].uid.path_in_resource)
 
     print("\n==== NO filter =====\n")
-    
-    for pda in put_data_array([], 
-                            "D:/Geosiris/CLOUD/Resqml Tools/data/ALWYN_DEPTH/ALWYN-RESQML.epc", 
-                            "D:/Geosiris/CLOUD/Resqml Tools/data/ALWYN_DEPTH/ALWYN-RESQML.h5",
-                            "coucou"):
-        print("> ", pda.data_arrays["0"].uid.uri, " ==> ", pda.data_arrays["0"].uid.path_in_resource)
+
+    for pda in put_data_array(
+        [],
+        "D:/Geosiris/CLOUD/Resqml Tools/data/ALWYN_DEPTH/ALWYN-RESQML.epc",
+        "D:/Geosiris/CLOUD/Resqml Tools/data/ALWYN_DEPTH/ALWYN-RESQML.h5",
+        "coucou",
+    ):
+        print(
+            "> ",
+            pda.data_arrays["0"].uid.uri,
+            " ==> ",
+            pda.data_arrays["0"].uid.path_in_resource,
+        )
