@@ -4,15 +4,15 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "etpclient"
-version = "0.0.1"
-description = ""
+version = "0.0.0" # Set at build time
+description = "ETP client"
 authors = ["Valentin Gauthier <valentin.gauthier@geosiris.com>"]
 maintainers = [
     "Valentin Gauthier <valentin.gauthier@geosiris.com>"
 ]
 license = "Apache-2.0"
 readme = "README.md"
-homepage = "www.geosiris.com"
+homepage = "http://www.geosiris.com"
 repository = "https://github.com/geosiris-technologies/etpclient-python"
 packages = [
     { include = 'etpclient', from = '.' }
@@ -26,9 +26,10 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet",
