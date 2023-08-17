@@ -317,7 +317,7 @@ def main():
         print(
             "Async event loop already running. Adding coroutine to the event loop."
         )
-        tsk = loop.create_task(
+        loop.create_task(
             main(
                 serv_url="localhost",
                 serv_port=80,

@@ -446,8 +446,7 @@ class ETPDataBridge:
                         "\n",
                     )
                 elif isinstance(parsed_context_uri, DataspaceUri):
-                    dataspace = parsed_context_uri.dataspace
-
+                    print(parsed_context_uri.dataspace)
                 else:
                     print(
                         client_info.ip,

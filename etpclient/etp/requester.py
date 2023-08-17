@@ -395,6 +395,7 @@ def get_close_session(reason="We have finished"):
 # /_____/\__,_/\__/\__,_/_/  |_/_/  /_/   \__,_/\__, /
 #                                              /____/
 
+
 def get_data_array_metadata(uri: str, path_in_res: str):
     return GetDataArrayMetadata(
         data_arrays={
