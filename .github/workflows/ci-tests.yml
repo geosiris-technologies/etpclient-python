@@ -17,7 +17,7 @@ jobs:
     steps:
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         uses: ./.github/actions/prepare-poetry
@@ -56,7 +56,7 @@ jobs:
         python-version: ["3.9", "3.10"]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         uses: ./.github/actions/prepare-poetry
