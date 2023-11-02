@@ -172,7 +172,7 @@ async def client(
             uuid_list = []
             print("args ",  args, "\n>> ", a)
             if(len(args) > 3):
-                uuid_list = uuid_list[4:]
+                uuid_list = args[3:]
             for putDataObj in put_data_object_by_path(
                 args[1], args[2] if len(args) > 2 else None,
                 uuid_list
