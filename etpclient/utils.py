@@ -71,7 +71,11 @@ def get_xml_tree_from_path(file_path: str):
 
 
 def get_xml_tree_string(file_content):
-    return etree.fromstring(bytes(bytearray(file_content, encoding="utf-8")))
+    try:
+        return etree.fromstring(bytes(bytearray(file_content, encoding="utf-8")))
+    except Exception as e:
+        return etree.fromstring(file_content)
+
 
 
 ##################

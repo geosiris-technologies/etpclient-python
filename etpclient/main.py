@@ -27,23 +27,31 @@ def helper():
 [XXX=Y] : replace XXX with your value, default is Y
 [[XXX]] : optional parameter
 
-\tHelp : show this menu
+[URI] for dataspaces can sometimes be set as "eml:///dataspace('DATASPACE_NAME')" but also with only the DATASPACE_NAME.
 
-\tQuit : hard quit (no CloseSession sent)
-\tCloseSession : close this session
+    Help : show this menu
 
-\tGetDataArrayMetadata  [URI] [PATH_IN_RESOURCE]
-\tGetDataArray          [URI] [PATH_IN_RESOURCE]
-\tGetDataSubArray       [URI] [PATH_IN_RESOURCE] [START] [COUNT]
-\tPutDataArray          [[UUIDS]]* [DATASPACE_NAME] [EPC_FILE_PATH] [H5_FILE_PATH]
+    Quit : hard quit (no CloseSession sent)
+    CloseSession : close this session
 
-\tGetDataObject         [URI_1] [...] [URI_N]
-\tPutDataObject         [FILE_PATH] [[DATASPACE_NAME]]
-\tGetResources          [[uri=eml:/// or notUri=DataspaceName]] [[depth=1]] [[SCOPE]]
+    GetDataArrayMetadata  [URI] [PATH_IN_RESOURCE]
+    GetDataArray          [URI] [PATH_IN_RESOURCE]
+    GetDataSubArray       [URI] [PATH_IN_RESOURCE] [START] [COUNT]
+    PutDataArray          [DATASPACE_NAME] [EPC_FILE_PATH] [H5_FILE_PATH] [[UUIDS]]*
+    PutDataArray_filter   [DATASPACE_NAME] [EPC_FILE_PATH] [H5_FILE_PATH] [[REGEX_TYPE_FILTER]]
 
-\tGetDataspaces
-\tPutDataspace          [NAME]
-\tDeleteDataspace       [NAME]
+    GetDataObject         [URI_1] [...] [URI_N]
+    DeleteDataObjects     [URI_1] [...] [URI_N]
+    PutDataObject         [FILE_PATH] [[DATASPACE_NAME]] [[UUIDS]]*
+
+    GetResources          [[uri=eml:/// or notUri=DataspaceName]] [[depth=1]] [[SCOPE]]
+    GetDeletedResources   [[uri=eml:/// or notUri=DataspaceName]] [[DELETE_TIME_FILTER]] [[DATA_OBJECT_TYPES]]*
+
+    GetDataspaces
+    PutDataspace          [NAME]
+    DeleteDataspace       [NAME]*
+
+    GetSupportedTypes     [URI] [[COUNT=True]] [[RETURN_EMPTY_TYPES=True]] [[SCOPE=Self]]
 """
     )
 
@@ -74,8 +82,7 @@ def get_token(get_token_url: str):
 
 
 def end_message(reason: str = None):
-
-    print("Bye bye")
+    print("1) Bye bye")
 
 
 async def client(
@@ -123,9 +130,9 @@ async def client(
 
     cpt_wait = 0
     time_step = 0.01
-    while not wsm.is_connected() and (cpt_wait * time_step < 30):
-        if (cpt_wait * 1000 % 1000) < 5:
-            print("\rwait for connection" + wait_symbol(cpt_wait), end="")
+    while not wsm.is_connected() and not wsm.closed and (cpt_wait * time_step < 30):
+        if (cpt_wait * 1000 % 1000) < 2:
+            print(f"\rwait for connection " + wait_symbol(cpt_wait), end="")
         cpt_wait = cpt_wait + 1
         time.sleep(time_step)
 
@@ -162,8 +169,13 @@ async def client(
 
         elif a.lower().startswith("putdataobject"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
+            uuid_list = []
+            print("args ",  args, "\n>> ", a)
+            if(len(args) > 3):
+                uuid_list = uuid_list[4:]
             for putDataObj in put_data_object_by_path(
-                args[1], args[2] if len(args) > 2 else None
+                args[1], args[2] if len(args) > 2 else None,
+                uuid_list
             ):
                 result = await wsm.send_no_wait(putDataObj)
                 if result:
@@ -246,21 +258,57 @@ async def client(
             except Exception as e:
                 print(e)
 
+        elif "supportedtypes" in a.lower():
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
+            try:
+                print("ARGS ", args)
+                result = await wsm.send_and_wait(get_supported_types(
+                    uri=args[1],
+                    count=True if len(args) <= 2 else args[2],
+                    return_empty_types=True if len(args) <= 3 else args[3],
+                    scope="Self" if len(args) <= 4 else args[4],
+                ))
+                if result:
+                    pretty_p.pprint(result)
+                    pass
+                else:
+                    print("No answer...")
+            except Exception as e:
+                print(e)
+
         elif a.lower().startswith("putdataarray"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             try:
+                print(f"\n\nCommand is '{a}'")
                 if len(args) < 3:
                     print(
                         "Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH"
                     )
                 else:
-                    uuid_list = args[1:-3] if len(args) > 4 else []
-                    dataspace = args[-3]
-                    epc_path = args[-2]
-                    h5_path = args[-1]
+                    type_filter = None
+                    uuid_list = []
+                    if(args[0].lower().endswith("filter")):
+                        type_filter = args[-1]
+                    else:
+                        print("UUID")
+                        uuid_list = args[4:] if len(args) > 4 else []
+                    dataspace = args[1]
+                    epc_path = args[2]
+                    h5_path = args[3]
+                    print(args)
+                    print(f"""uuid_list {uuid_list}
+                        epc_path {epc_path}
+                        h5_path {h5_path}
+                        dataspace {dataspace}
+                        type_filter {type_filter}""")
 
                     async for msg_idx in put_data_array_sender(
-                        wsm, uuid_list, epc_path, h5_path, dataspace
+                        websocket=wsm,
+                        uuids_filter=uuid_list,
+                        epc_or_xml_file_path=epc_path,
+                        h5_file_path=h5_path,
+                        dataspace_name=dataspace,
+                        type_filter=type_filter,
                     ):
                         print(msg_idx)
 
@@ -273,12 +321,42 @@ async def client(
                     else:
                         print("No answer...")
             except Exception as e:
+                raise e
+
+        elif a.lower().startswith("deletedataobject"):
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
+            try:
+                result = await wsm.send_and_wait(delete_data_object(args[1:]))
+                if result:
+                    pretty_p.pprint(result)
+                    pass
+                else:
+                    print("No answer...")
+            except Exception as e:
                 print(e)
 
         elif a.lower().startswith("deletedataspace"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             try:
                 result = await wsm.send_and_wait(delete_dataspace(args[1:]))
+                if result:
+                    pretty_p.pprint(result)
+                    pass
+                else:
+                    print("No answer...")
+            except Exception as e:
+                print(e)
+
+        elif a.lower().startswith("getdeletedresources"):
+            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
+            try:
+                result = await wsm.send_and_wait(
+                    get_deleted_resources(
+                        dataspace_names=args[1],
+                        delete_time_filter=args[2] if len(args) > 2 else None,
+                        data_object_types=args[3] if len(args) > 3 else [],
+                    )
+                )
                 if result:
                     pretty_p.pprint(result)
                     pass
