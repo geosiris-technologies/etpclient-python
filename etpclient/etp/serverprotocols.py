@@ -144,8 +144,15 @@ from etptypes.energistics.etp.v12.protocol.store.put_data_objects import (
 from etptypes.energistics.etp.v12.protocol.store.put_data_objects_response import (
     PutDataObjectsResponse,
 )
+from etptypes.energistics.etp.v12.protocol.store.delete_data_objects_response import (
+    DeleteDataObjectsResponse,
+)
 from etptypes.energistics.etp.v12.protocol.supported_types.get_supported_types import (
     GetSupportedTypes,
+)
+
+from etptypes.energistics.etp.v12.protocol.supported_types.get_supported_types_response import (
+    GetSupportedTypesResponse,
 )
 
 
@@ -179,6 +186,15 @@ def print_dataspace(res: Dataspace):
     print("\tPath :", res.path)
     print("\ttCustom data :", res.custom_data)
     # print("\tLast change :", datetime.fromtimestamp(res.last_changed))
+
+
+def print_protocol_exception(pe: ProtocolException):
+    if pe.error is not None:
+        print("Error recieved : " + str(pe))
+    elif len(pe.errors) > 0:
+        print(f"Errors recieved ({pe.errors}): ")
+        for code, pe in pe.errors.items():
+            print(f"\t{code}) {str(pe)}")
 
 
 @ETPConnection.on(CommunicationProtocol.CORE)
@@ -231,7 +247,7 @@ class myCoreProtocol(CoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print("Error recieved : " + str(msg))
+        print_protocol_exception(msg)
         yield
 
 
@@ -266,7 +282,23 @@ class myDiscoveryProtocol(DiscoveryHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print("Error recieved : " + str(msg))
+        print_protocol_exception(msg)
+        yield
+
+    async def on_get_deleted_resources_response(
+        self,
+        msg: GetDeletedResourcesResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        if msg is not None:
+            if len(msg.deleted_resources) > 0:
+                print(f"Deleted object list ({len(msg.deleted_resources)}) : ")
+                for dr in msg.deleted_resources:
+                    print(f"\t{dr.uri} \tdeleted_time: \t{dr.deleted_time}")
+            else:
+                print("No deleted resource found for this context")
+
         yield
 
 
@@ -350,7 +382,8 @@ class myDataspaceHandler(DataspaceHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print("Error recieved : " + str(msg))
+        print_protocol_exception(msg)
+
         yield
 
 
@@ -425,7 +458,20 @@ class myStoreProtocol(StoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        pretty_p.pprint(msg)
+        print(f"Success {len(msg.success)}:")
+        for code, pr in msg.success.items():
+            print(f"\t{code}) {str(pr.created_contained_object_uris)}")
+        yield
+
+    async def on_delete_data_objects_response(
+        self,
+        msg: DeleteDataObjectsResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(f"Deletion success {len(msg.deleted_uris)}:")
+        for code, aos in msg.deleted_uris.items():
+            print(f"\t{code}) {str(aos)}")
         yield
 
     async def on_protocol_exception(
@@ -434,7 +480,7 @@ class myStoreProtocol(StoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print("Error recieved : " + str(msg))
+        print_protocol_exception(msg)
         yield
 
 
@@ -536,7 +582,7 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print("Error recieved : " + str(msg))
+        print_protocol_exception(msg)
         yield
 
 
@@ -557,9 +603,17 @@ class mySupportedTypesProtocol(SupportedTypesHandler):
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         print(client_info.ip, ": on_get_supported_types")
-        etpObj, etpErr = await etp_bridge.handle_request(msg, client_info)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        yield
+
+    async def on_get_supported_types_response(
+        self,
+        msg: GetSupportedTypesResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[bytes, None]:
+        for st in msg.supported_types:
+            print(f"\t{st.data_object_type}\t count : {str(st.object_count)}")
+        yield
 
     async def on_protocol_exception(
         self,
@@ -567,7 +621,7 @@ class mySupportedTypesProtocol(SupportedTypesHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print("Error recieved : " + str(msg))
+        print_protocol_exception(msg)
         yield
 
 

@@ -73,7 +73,9 @@ class WebSocketManager:
         password: str = None,
         token: str = None,
     ):
+        self.closed = False
         self.recieved_msg_dict = {}
+        print(f"Connecting to {uri}")
         # print("BASIC : ", basic_auth_header(username, password))
         # "ws://admin:openSesame@localhost:16500/etp/"
         if token:
@@ -112,20 +114,20 @@ class WebSocketManager:
             client_info=ClientInfo(
                 ip=uri,
                 endpoint_capabilities={
-                    "MaxWebSocketFramePayloadSize": 40000,
-                    "MaxWebSocketMessagePayloadSize": 40000,
+                    "MaxWebSocketFramePayloadSize": 900000,
+                    "MaxWebSocketMessagePayloadSize": 900000,
                 },
             ),
         )
         self.recieved = {}
 
-        def run(*args):
+        def run(websocket):
 
-            self.ws.run_forever()
-            # print("thread terminating...")
-            self.etp_connection.is_connected = False
+            websocket.ws.run_forever()
+            print("thread terminating...")
+            websocket.etp_connection.is_connected = False
 
-        thread.start_new_thread(run, ())
+        thread.start_new_thread(run, (self,))
 
     def is_connected(self):
         # print(self.etp_connection)
@@ -183,6 +185,7 @@ class WebSocketManager:
             except Exception as e:
                 print(e)
                 print(f"#Err: {msg}")
+                raise e
 
         asyncio.run(handle_msg(self.etp_connection, self, message))
 
@@ -196,8 +199,8 @@ class WebSocketManager:
     def on_close(self, ws, a, b):
         # print("ON_CLOSE")
         try:
+            self.closed = True
             print("### closed ###", a, "\n", b)
-            print("Bye bye")
             sys.stdout.flush()
             self.etp_connection.is_connected = False
             sys.exit(1)
