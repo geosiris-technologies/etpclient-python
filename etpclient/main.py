@@ -130,9 +130,13 @@ async def client(
 
     cpt_wait = 0
     time_step = 0.01
-    while not wsm.is_connected() and not wsm.closed and (cpt_wait * time_step < 30):
+    while (
+        not wsm.is_connected()
+        and not wsm.closed
+        and (cpt_wait * time_step < 30)
+    ):
         if (cpt_wait * 1000 % 1000) < 2:
-            print(f"\rwait for connection " + wait_symbol(cpt_wait), end="")
+            print(f"\rwait for connection {wait_symbol(cpt_wait)}", end="")
         cpt_wait = cpt_wait + 1
         time.sleep(time_step)
 
@@ -170,12 +174,11 @@ async def client(
         elif a.lower().startswith("putdataobject"):
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             uuid_list = []
-            print("args ",  args, "\n>> ", a)
-            if(len(args) > 3):
+            print("args ", args, "\n>> ", a)
+            if len(args) > 3:
                 uuid_list = args[3:]
             for putDataObj in put_data_object_by_path(
-                args[1], args[2] if len(args) > 2 else None,
-                uuid_list
+                args[1], args[2] if len(args) > 2 else None, uuid_list
             ):
                 result = await wsm.send_no_wait(putDataObj)
                 if result:
@@ -262,12 +265,14 @@ async def client(
             args = list(filter(lambda x: len(x) > 0, a.split(" ")))
             try:
                 print("ARGS ", args)
-                result = await wsm.send_and_wait(get_supported_types(
-                    uri=args[1],
-                    count=True if len(args) <= 2 else args[2],
-                    return_empty_types=True if len(args) <= 3 else args[3],
-                    scope="Self" if len(args) <= 4 else args[4],
-                ))
+                result = await wsm.send_and_wait(
+                    get_supported_types(
+                        uri=args[1],
+                        count=True if len(args) <= 2 else args[2],
+                        return_empty_types=True if len(args) <= 3 else args[3],
+                        scope="Self" if len(args) <= 4 else args[4],
+                    )
+                )
                 if result:
                     pretty_p.pprint(result)
                     pass
@@ -287,7 +292,7 @@ async def client(
                 else:
                     type_filter = None
                     uuid_list = []
-                    if(args[0].lower().endswith("filter")):
+                    if args[0].lower().endswith("filter"):
                         type_filter = args[-1]
                     else:
                         print("UUID")
@@ -296,11 +301,13 @@ async def client(
                     epc_path = args[2]
                     h5_path = args[3]
                     print(args)
-                    print(f"""uuid_list {uuid_list}
+                    print(
+                        f"""uuid_list {uuid_list}
                         epc_path {epc_path}
                         h5_path {h5_path}
                         dataspace {dataspace}
-                        type_filter {type_filter}""")
+                        type_filter {type_filter}"""
+                    )
 
                     async for msg_idx in put_data_array_sender(
                         websocket=wsm,

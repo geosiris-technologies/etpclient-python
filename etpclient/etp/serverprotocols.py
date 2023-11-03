@@ -187,6 +187,7 @@ def print_dataspace(res: Dataspace):
     print("\ttCustom data :", res.custom_data)
     # print("\tLast change :", datetime.fromtimestamp(res.last_changed))
 
+
 def print_protocol_exception(pe: ProtocolException):
     if pe.error is not None:
         print("Error recieved : " + str(pe))
@@ -299,7 +300,6 @@ class myDiscoveryProtocol(DiscoveryHandler):
                 print("No deleted resource found for this context")
 
         yield
-
 
 
 #     ____        __
@@ -462,7 +462,6 @@ class myStoreProtocol(StoreHandler):
         for code, pr in msg.success.items():
             print(f"\t{code}) {str(pr.created_contained_object_uris)}")
         yield
-
 
     async def on_delete_data_objects_response(
         self,
