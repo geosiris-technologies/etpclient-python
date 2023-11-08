@@ -681,28 +681,3 @@ async def download_dataspace(
                         xml_file.write(do.data)
             else:
                 print(f"Not a dataobject :{type(msg.body)} : {msg.body}")
-
-
-if __name__ == "__main__":
-    for pda in put_data_array(
-        ["b710482d-0a57-4149-8196-a6beb978905e"],
-        "test-data/usecase1.epc",
-        "test-data/ALWYN_RESQML_FAULT_MBA_ACTIVITY.h5",
-        "coucou",
-    ):
-        print("> ", pda.data_arrays["0"].uid.path_in_resource)
-
-    print("\n==== NO filter =====\n")
-
-    for pda in put_data_array(
-        [],
-        "D:/Geosiris/CLOUD/Resqml Tools/data/ALWYN_DEPTH/ALWYN-RESQML.epc",
-        "D:/Geosiris/CLOUD/Resqml Tools/data/ALWYN_DEPTH/ALWYN-RESQML.h5",
-        "coucou",
-    ):
-        print(
-            "> ",
-            pda.data_arrays["0"].uid.uri,
-            " ==> ",
-            pda.data_arrays["0"].uid.path_in_resource,
-        )

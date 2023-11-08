@@ -77,8 +77,6 @@ class WebSocketManager:
         self.closed = False
         self.recieved_msg_dict = {}
         print(f"Connecting to {uri}")
-        # print("BASIC : ", basic_auth_header(username, password))
-        # "ws://admin:openSesame@localhost:16500/etp/"
         if token:
             print("auth bearer : \n" + "authorization: Bearer " + token)
             self.ws = websocket.WebSocketApp(
