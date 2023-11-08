@@ -27,3 +27,4 @@ demos/
 *.xml
 *.txt
 output*
+*.log

@@ -2,6 +2,7 @@
 # Copyright (c) 2022-2023 Geosiris.
 # SPDX-License-Identifier: Apache-2.0
 #
+import logging
 import requests
 import asyncio
 import time
@@ -51,6 +52,8 @@ def helper():
     PutDataspace          [NAME]
     DeleteDataspace       [NAME]*
 
+    Download              [OUTPU_FILE_PATH] [DATASPACE_NAME]
+
     GetSupportedTypes     [URI] [[COUNT=True]] [[RETURN_EMPTY_TYPES=True]] [[SCOPE=Self]]
 """
     )
@@ -93,36 +96,50 @@ async def client(
     serv_password=None,
     serv_get_token_url=None,
     serv_token=None,
+    http_reqs=False,
 ):
     serv_uri = (
         str(serv_url)
         + (":" + str(serv_port) if serv_port else "")
-        + "/"
-        + (serv_sub_path + "/" if serv_sub_path else "")
+        + ("/" + serv_sub_path + "/" if serv_sub_path else "")
     )
 
-    print("Trying to contact server '" + str(serv_uri) + "'")
-    print("======> SERVER CAPS Test if contains :", ETPConnection.SUB_PROTOCOL)
-    server_caps_list_txt = requests.get(
-        "http://"
-        + serv_uri
-        + ".well-known/etp-server-capabilities?GetVersions=true"
-    ).text
-    pretty_p.pprint(server_caps_list_txt)
-    # assert ETPConnection.SUB_PROTOCOL in json.loads(server_caps_list_txt)
+    if http_reqs:
+        serv_uri_http = "http://" + serv_uri.split("://")[-1]
 
-    print("======> SERVER CAPS :")
-    server_caps_txt = requests.get(
-        "http://"
-        + serv_uri
-        + ".well-known/etp-server-capabilities?GetVersion="
-        + ETPConnection.SUB_PROTOCOL
-    ).text
-    pretty_p.pprint(json.loads(server_caps_txt))
-    print("<====== SERVER CAPS\n")
+        print("Trying to contact server '" + str(serv_uri) + "'")
+        print(
+            "======> SERVER CAPS Test if contains :",
+            ETPConnection.SUB_PROTOCOL,
+        )
+        try:
+            server_caps_list_txt = requests.get(
+                serv_uri_http
+                + ".well-known/etp-server-capabilities?GetVersions=true"
+            ).text
+            pretty_p.pprint(server_caps_list_txt)
+            # assert ETPConnection.SUB_PROTOCOL in json.loads(server_caps_list_txt)
+        except:
+            print("Failed to recover server caps version")
+
+        print("======> SERVER CAPS :")
+        try:
+            server_caps_txt = requests.get(
+                serv_uri_http
+                + ".well-known/etp-server-capabilities?GetVersion="
+                + ETPConnection.SUB_PROTOCOL
+            ).text
+            pretty_p.pprint(json.loads(server_caps_txt))
+            print("<====== SERVER CAPS\n")
+        except:
+            print("Failed to recover server capabilities")
+
+    serv_uri_ws = serv_uri
+    if "://" not in serv_uri_ws:
+        serv_uri_ws = "ws://" + serv_uri
 
     wsm = WebSocketManager(
-        "ws://" + serv_uri,
+        serv_uri_ws,
         username=serv_username,
         password=serv_password,
         token=get_token(serv_get_token_url) or serv_token,
@@ -150,127 +167,26 @@ async def client(
     while running:
         a = input("Please write something\n")
 
-        if a.lower() == "quit":
-            running = False
-        elif a.lower().startswith("help"):
-            helper()
-        elif a.lower().startswith("getresource"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            result = await wsm.send_and_wait(
-                get_resouces(
-                    args[1] if len(args) > 1 else "eml:///",
-                    int(args[2]) if len(args) > 2 else 1,
-                    args[3] if len(args) > 3 else None,
-                )
-            )
-            if result:
-                pretty_p.pprint(result)
-                # pretty_p.pprint(result.body.__dict__)
-                # get_res_resp
-                pass
-            else:
-                print("No answer...")
+        args = list(filter(lambda x: len(x) > 0, a.split(" ")))
 
-        elif a.lower().startswith("putdataobject"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            uuid_list = []
-            print("args ", args, "\n>> ", a)
-            if len(args) > 3:
-                uuid_list = args[3:]
-            for putDataObj in put_data_object_by_path(
-                args[1], args[2] if len(args) > 2 else None, uuid_list
-            ):
-                result = await wsm.send_no_wait(putDataObj)
-                if result:
-                    pretty_p.pprint(result)
-                    # pretty_p.pprint(result.body.__dict__)
-                    # get_res_resp
-                    pass
-                else:
-                    print("No answer...")
+        if len(args) > 0:
+            command = args[0]
+            command_params = args[1:]
 
-        elif a.lower().startswith("getdataarraymetadata"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            if len(args) <= 2:
-                print("Usage : GetDataArrayMetadata [URI] [PATH_IN_RESOURCES]")
-            else:
-                print(f"===> {args}\n")
-                get_data_arr = get_data_array_metadata(args[1], args[2])
-                print(f"\n\n{get_data_arr}\n\n")
-
-                result = await wsm.send_no_wait(get_data_arr)
-                if result:
-                    pretty_p.pprint(result)
-                    pass
-                else:
-                    print("No answer...")
-
-        elif a.lower().startswith("getdataarray") or a.lower().startswith(
-            "getdatasubarray"
-        ):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            if len(args) <= 2:
-                print(
-                    "Usage : GetDataSubArray [URI] [PATH_IN_RESOURCES] [START] [COUNT]"
-                )
-            else:
-                print(f"===> {args}\n")
-                if len(args) > 4:  # subArray
-                    get_data_arr = get_data_array(
-                        args[1], args[2], int(args[3]), int(args[4])
-                    )
-                else:
-                    get_data_arr = get_data_array(args[1], args[2])
-
-                print(f"\n\n{get_data_arr}\n\n")
-                result = await wsm.send_no_wait(get_data_arr)
-                if result:
-                    pretty_p.pprint(result)
-                    pass
-                else:
-                    print("No answer...")
-
-        elif a.lower().startswith("getdataobject"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            get_data_obj = get_data_object(args[1:])
-            # print("Sending : ", get_data_obj.__dict__)
-            result = await wsm.send_and_wait(get_data_obj)
-            if result:
-                pretty_p.pprint(result)
-                pass
-            else:
-                print("No answer...")
-
-        elif a.lower().startswith("getdataspaces"):
-            result = await wsm.send_and_wait(get_dataspaces())
-            if result:
-                pretty_p.pprint(result)
-                pass
-            else:
-                print("No answer...")
-
-        elif a.lower().startswith("putdataspace"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            try:
-                result = await wsm.send_and_wait(put_dataspace(args[1:]))
-                if result:
-                    pretty_p.pprint(result)
-                    pass
-                else:
-                    print("No answer...")
-            except Exception as e:
-                print(e)
-
-        elif "supportedtypes" in a.lower():
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            try:
-                print("ARGS ", args)
+            if a.lower() == "quit":
+                running = False
+            elif command.startswith("help"):
+                helper()
+            elif command.startswith("getresource"):
                 result = await wsm.send_and_wait(
-                    get_supported_types(
-                        uri=args[1],
-                        count=True if len(args) <= 2 else args[2],
-                        return_empty_types=True if len(args) <= 3 else args[3],
-                        scope="Self" if len(args) <= 4 else args[4],
+                    get_resouces(
+                        command_params[0]
+                        if len(command_params) > 0
+                        else "eml:///",
+                        int(command_params[1])
+                        if len(command_params) > 1
+                        else 1,
+                        command_params[2] if len(command_params) > 2 else None,
                     )
                 )
                 if result:
@@ -278,110 +194,242 @@ async def client(
                     pass
                 else:
                     print("No answer...")
-            except Exception as e:
-                print(e)
 
-        elif a.lower().startswith("putdataarray"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            try:
-                print(f"\n\nCommand is '{a}'")
-                if len(args) < 3:
-                    print(
-                        "Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH"
-                    )
-                else:
-                    type_filter = None
-                    uuid_list = []
-                    if args[0].lower().endswith("filter"):
-                        type_filter = args[-1]
-                    else:
-                        print("UUID")
-                        uuid_list = args[4:] if len(args) > 4 else []
-                    dataspace = args[1]
-                    epc_path = args[2]
-                    h5_path = args[3]
-                    print(args)
-                    print(
-                        f"""uuid_list {uuid_list}
-                        epc_path {epc_path}
-                        h5_path {h5_path}
-                        dataspace {dataspace}
-                        type_filter {type_filter}"""
-                    )
-
-                    async for msg_idx in put_data_array_sender(
-                        websocket=wsm,
-                        uuids_filter=uuid_list,
-                        epc_or_xml_file_path=epc_path,
-                        h5_file_path=h5_path,
-                        dataspace_name=dataspace,
-                        type_filter=type_filter,
-                    ):
-                        print(msg_idx)
-
-                    # for pda in put_data_array(uuid_list, epc_path, h5_path, dataspace):
-                    #     result = await wsm.send_no_wait(pda)
-                    #     # result = await wsm.send_and_wait()
+            elif command.startswith("putdataobject"):
+                uuid_list = []
+                print("args ", command_params, "\n>> ", a)
+                if len(command_params) > 2:
+                    uuid_list = command_params[2:]
+                for putDataObj in put_data_object_by_path(
+                    command_params[0],
+                    command_params[1] if len(command_params) > 2 else None,
+                    uuid_list,
+                ):
+                    result = await wsm.send_no_wait(putDataObj)
                     if result:
                         pretty_p.pprint(result)
                         pass
                     else:
                         print("No answer...")
-            except Exception as e:
-                raise e
 
-        elif a.lower().startswith("deletedataobject"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            try:
-                result = await wsm.send_and_wait(delete_data_object(args[1:]))
+            elif command.startswith("getdataarraymetadata"):
+                if len(command_params) < 2:
+                    print(
+                        "Usage : GetDataArrayMetadata [URI] [PATH_IN_RESOURCES]"
+                    )
+                else:
+                    print(f"===> {command_params}\n")
+                    get_data_arr = get_data_array_metadata(
+                        command_params[0], command_params[1]
+                    )
+                    print(f"\n\n{get_data_arr}\n\n")
+
+                    result = await wsm.send_no_wait(get_data_arr)
+                    if result:
+                        pretty_p.pprint(result)
+                        pass
+                    else:
+                        print("No answer...")
+
+            elif command.startswith("getdataarray") or command.startswith(
+                "getdatasubarray"
+            ):
+                if len(command_params) < 2:
+                    print(
+                        "Usage : GetDataSubArray [URI] [PATH_IN_RESOURCES] [START] [COUNT]"
+                    )
+                else:
+                    print(f"===> {command_params}\n")
+                    if len(command_params) > 3:  # subArray
+                        get_data_arr = get_data_array(
+                            command_params[0],
+                            command_params[1],
+                            int(command_params[2]),
+                            int(command_params[3]),
+                        )
+                    else:
+                        get_data_arr = get_data_array(
+                            command_params[0], command_params[1]
+                        )
+
+                    print(f"\n\n{get_data_arr}\n\n")
+                    result = await wsm.send_no_wait(get_data_arr)
+                    if result:
+                        pretty_p.pprint(result)
+                        pass
+                    else:
+                        print("No answer...")
+
+            elif command.startswith("getdataobject"):
+                get_data_obj = get_data_object(command_params)
+                result = await wsm.send_and_wait(get_data_obj)
                 if result:
                     pretty_p.pprint(result)
                     pass
                 else:
                     print("No answer...")
-            except Exception as e:
-                print(e)
 
-        elif a.lower().startswith("deletedataspace"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            try:
-                result = await wsm.send_and_wait(delete_dataspace(args[1:]))
+            elif command.startswith("getdataspaces"):
+                result = await wsm.send_and_wait(get_dataspaces())
                 if result:
                     pretty_p.pprint(result)
                     pass
                 else:
                     print("No answer...")
-            except Exception as e:
-                print(e)
 
-        elif a.lower().startswith("getdeletedresources"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            try:
+            elif command.startswith("putdataspace"):
+                try:
+                    result = await wsm.send_and_wait(
+                        put_dataspace(command_params)
+                    )
+                    if result:
+                        pretty_p.pprint(result)
+                        pass
+                    else:
+                        print("No answer...")
+                except Exception as e:
+                    print(e)
+
+            elif "supportedtypes" in command:
+                try:
+                    print("ARGS ", command_params)
+                    result = await wsm.send_and_wait(
+                        get_supported_types(
+                            uri=command_params[0],
+                            count=True
+                            if len(command_params) < 2
+                            else command_params[1],
+                            return_empty_types=True
+                            if len(command_params) < 3
+                            else command_params[2],
+                            scope="Self"
+                            if len(command_params) < 4
+                            else command_params[3],
+                        )
+                    )
+                    if result:
+                        pretty_p.pprint(result)
+                        pass
+                    else:
+                        print("No answer...")
+                except Exception as e:
+                    print(e)
+
+            elif command.startswith("putdataarray"):
+                try:
+                    print(f"\n\nCommand is '{a}'")
+                    if len(command_params) < 2:
+                        print(
+                            "Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH"
+                        )
+                    else:
+                        type_filter = None
+                        uuid_list = []
+                        if command_params[0].lower().endswith("filter"):
+                            type_filter = command_params[-1]
+                        else:
+                            print("UUID")
+                            uuid_list = (
+                                command_params[3:]
+                                if len(command_params) > 3
+                                else []
+                            )
+                        dataspace = command_params[0]
+                        epc_path = command_params[1]
+                        h5_path = command_params[2]
+                        print(command_params)
+                        print(
+                            f"""uuid_list {uuid_list}
+                            epc_path {epc_path}
+                            h5_path {h5_path}
+                            dataspace {dataspace}
+                            type_filter {type_filter}"""
+                        )
+
+                        async for msg_idx in put_data_array_sender(
+                            websocket=wsm,
+                            uuids_filter=uuid_list,
+                            epc_or_xml_file_path=epc_path,
+                            h5_file_path=h5_path,
+                            dataspace_name=dataspace,
+                            type_filter=type_filter,
+                        ):
+                            print(msg_idx)
+
+                        if result:
+                            pretty_p.pprint(result)
+                            pass
+                        else:
+                            print("No answer...")
+                except Exception as e:
+                    raise e
+
+            elif command.startswith("deletedataobject"):
+                try:
+                    result = await wsm.send_and_wait(
+                        delete_data_object(command_params)
+                    )
+                    if result:
+                        pretty_p.pprint(result)
+                        pass
+                    else:
+                        print("No answer...")
+                except Exception as e:
+                    print(e)
+
+            elif command.startswith("deletedataspace"):
+                try:
+                    result = await wsm.send_and_wait(
+                        delete_dataspace(command_params)
+                    )
+                    if result:
+                        pretty_p.pprint(result)
+                        pass
+                    else:
+                        print("No answer...")
+                except Exception as e:
+                    print(e)
+
+            elif command.startswith("getdeletedresources"):
+                try:
+                    result = await wsm.send_and_wait(
+                        get_deleted_resources(
+                            dataspace_names=command_params[0],
+                            delete_time_filter=command_params[1]
+                            if len(command_params) > 1
+                            else None,
+                            data_object_types=command_params[2]
+                            if len(command_params) > 2
+                            else [],
+                        )
+                    )
+                    if result:
+                        pretty_p.pprint(result)
+                        pass
+                    else:
+                        print("No answer...")
+                except Exception as e:
+                    print(e)
+
+            elif command.startswith("closesession"):
                 result = await wsm.send_and_wait(
-                    get_deleted_resources(
-                        dataspace_names=args[1],
-                        delete_time_filter=args[2] if len(args) > 2 else None,
-                        data_object_types=args[3] if len(args) > 3 else [],
+                    get_close_session(
+                        command_params[0]
+                        if len(command_params) > 0
+                        else "We have finished"
                     )
                 )
-                if result:
-                    pretty_p.pprint(result)
-                    pass
-                else:
-                    print("No answer...")
-            except Exception as e:
-                print(e)
-
-        elif a.lower().startswith("closesession"):
-            args = list(filter(lambda x: len(x) > 0, a.split(" ")))
-            result = await wsm.send_and_wait(
-                get_close_session(
-                    args[1] if len(args) > 1 else "We have finished"
+                await asyncio.sleep(1)
+            elif command == "download":
+                await download_dataspace(
+                    ws=wsm,
+                    output_file_path=command_params[0],
+                    dataspace_name=command_params[1]
+                    if len(command_params) > 1
+                    else None,
                 )
-            )
-            await asyncio.sleep(1)
-        else:
-            print(a)
+            else:
+                print(a)
 
         if not wsm.is_connected():
             running = False
@@ -390,6 +438,7 @@ async def client(
 
 
 def main():
+    logging.basicConfig(filename="etpclient.log", level=logging.DEBUG)
 
     try:
         loop = asyncio.get_running_loop()
@@ -429,7 +478,9 @@ def main():
             type=str,
             help="[Required] Server host (e.g. localhost or ip like XXX.XXX.XXX.XXX)",
         )
-        parser.add_argument("--port", type=int, default=80, help="Server port")
+        parser.add_argument(
+            "--port", type=int, default=None, help="Server port"
+        )
         parser.add_argument(
             "--sub-path",
             type=str,
@@ -445,6 +496,9 @@ def main():
             "--token-url", type=str, help="The server get token url"
         )
         parser.add_argument("--token", "-t", type=str, help="An access token")
+        parser.add_argument(
+            "--caps", action="store_true", help="print http capabilities"
+        )
         args = parser.parse_args()
 
         asyncio.run(
@@ -456,6 +510,7 @@ def main():
                 serv_password=args.password,
                 serv_get_token_url=args.token_url,
                 serv_token=args.token,
+                http_reqs=args.caps,
             )
         )
 
