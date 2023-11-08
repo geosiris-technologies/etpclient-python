@@ -54,6 +54,7 @@ from etptypes.energistics.etp.v12.datatypes.version import *
 from etptypes.energistics.etp.v12.protocol.core.close_session import (
     CloseSession,
 )
+from etptypes.energistics.etp.v12.protocol.core.acknowledge import Acknowledge
 from etptypes.energistics.etp.v12.protocol.core.open_session import OpenSession
 from etptypes.energistics.etp.v12.protocol.core.ping import Ping
 from etptypes.energistics.etp.v12.protocol.core.pong import Pong
@@ -199,7 +200,6 @@ def print_protocol_exception(pe: ProtocolException):
 
 @ETPConnection.on(CommunicationProtocol.CORE)
 class myCoreProtocol(CoreHandler):
-
     uuid: Uuid = pyUUID.uuid4()
 
     async def on_open_session(
@@ -299,6 +299,15 @@ class myDiscoveryProtocol(DiscoveryHandler):
             else:
                 print("No deleted resource found for this context")
 
+        yield
+
+    async def on_acknowledge(
+        self,
+        msg: Acknowledge,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        print(f"Message recieved {msg}")
         yield
 
 
@@ -632,6 +641,7 @@ class mySupportedTypesProtocol(SupportedTypesHandler):
 # /____/\___/_/    |___/\___/_/      \____/\__,_/ .___/____/
 #                                              /_/
 
+
 # ATTENTION : A FAIRE EN DERNIER ! a cause de supportedProtocolList_fun()
 @ETPConnection.dec_server_capabilities()
 def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
@@ -666,8 +676,24 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
             #                                           'SupportsGet': {'item': {'boolean': True}},
             #                                           'SupportsPut': {'item': {'boolean': True}}
             #                                           )
+            # SupportedDataObject(
+            #     qualified_type="eml20.*",
+            #     data_object_capabilities={
+            #         "SupportsDelete": DataValue(item=True),
+            #         "SupportsPut": DataValue(item=True),
+            #         "SupportsGet": DataValue(item=True),
+            #     },
+            # ),
+            # SupportedDataObject(
+            #     qualified_type="resqml20.*",
+            #     data_object_capabilities={
+            #         "SupportsDelete": DataValue(item=True),
+            #         "SupportsPut": DataValue(item=True),
+            #         "SupportsGet": DataValue(item=True),
+            #     },
+            # ),
             SupportedDataObject(
-                qualified_type="eml20.*",
+                qualified_type="witsml20.*",
                 data_object_capabilities={
                     "SupportsDelete": DataValue(item=True),
                     "SupportsPut": DataValue(item=True),
@@ -675,7 +701,7 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
                 },
             ),
             SupportedDataObject(
-                qualified_type="resqml20.*",
+                qualified_type="witsml21.*",
                 data_object_capabilities={
                     "SupportsDelete": DataValue(item=True),
                     "SupportsPut": DataValue(item=True),

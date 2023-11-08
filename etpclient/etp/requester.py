@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import re
-import zipfile
+from zipfile import ZipFile
 from lxml import etree
 from io import BytesIO
 
@@ -71,6 +71,9 @@ from etptypes.energistics.etp.v12.protocol.store.put_data_objects import (
 from etptypes.energistics.etp.v12.protocol.store.get_data_objects import (
     GetDataObjects,
 )
+from etptypes.energistics.etp.v12.protocol.store.get_data_objects_response import (
+    GetDataObjectsResponse,
+)
 from etptypes.energistics.etp.v12.protocol.store.delete_data_objects import (
     DeleteDataObjects,
 )
@@ -112,6 +115,7 @@ from etptypes.energistics.etp.v12.datatypes.object.dataspace import Dataspace
 from etpproto.uri import *
 
 from etpproto.connection import ETPConnection, CommunicationProtocol
+from etpproto.uri import parse_uri
 
 from etpclient.etp.h5_handler import generate_put_data_arrays
 
@@ -256,8 +260,11 @@ def get_scope(scope: str):
 
 
 def get_resouces(uri: str = "eml:///", depth: int = 1, scope=None):
-    if not uri.startswith("eml:///"):
-        uri = f"eml:///dataspace('{uri}')"
+    if uri is not None:
+        if not uri.startswith("eml:///"):
+            uri = f"eml:///dataspace('{uri}')"
+    else:
+        uri = "eml:///"
     return GetResources(
         context=ContextInfo(
             uri=uri,
@@ -277,8 +284,8 @@ def get_dataspaces():
     return GetDataspaces()
 
 
-def extractResqmlUuid(content: str):
-    return findUuid(content)
+async def extractResqmlUuid(content: str):
+    return await findUuid(content)
 
 
 XML_TYPE_REGXP = r"<([\w]+:)?([\w]+)"
@@ -624,27 +631,53 @@ async def put_data_array_sender(
                     print(e)
 
 
-if __name__ == "__main__":
+async def download_dataspace(
+    ws, output_file_path: str, dataspace_name: str = None
+):
+    get_res = get_resouces(uri=dataspace_name, depth=1, scope="sources")
+    result_get_res = await ws.send_and_wait(get_res)
+    # print("===>", result_get_res)
 
-    for pda in put_data_array(
-        ["b710482d-0a57-4149-8196-a6beb978905e"],
-        "test-data/usecase1.epc",
-        "test-data/ALWYN_RESQML_FAULT_MBA_ACTIVITY.h5",
-        "coucou",
-    ):
-        print("> ", pda.data_arrays["0"].uid.path_in_resource)
+    uri_list = []
 
-    print("\n==== NO filter =====\n")
+    for msg in result_get_res:
+        try:
+            uri_list += list(map(lambda r: r.uri, msg.body.resources))
+        except Exception as e:
+            print("Err ", {type(e).__name__}, e)
 
-    for pda in put_data_array(
-        [],
-        "D:/Geosiris/CLOUD/Resqml Tools/data/ALWYN_DEPTH/ALWYN-RESQML.epc",
-        "D:/Geosiris/CLOUD/Resqml Tools/data/ALWYN_DEPTH/ALWYN-RESQML.h5",
-        "coucou",
-    ):
-        print(
-            "> ",
-            pda.data_arrays["0"].uid.uri,
-            " ==> ",
-            pda.data_arrays["0"].uid.path_in_resource,
-        )
+    print(f"URIS to download : {uri_list}")
+
+    if len(uri_list) <= 0:
+        print("No Object to download")
+        return
+
+    all_in_one = False
+
+    result_get_do = []
+
+    if all_in_one:
+        get_do = get_data_object(uri_list, format="xml")
+        result_get_do = result_get_do + await ws.send_and_wait(get_do)
+    else:
+        for uri in uri_list:
+            get_do = get_data_object([uri], format="xml")
+            result_get_do = result_get_do + await ws.send_and_wait(get_do)
+
+    # print(result_get_do)
+
+    # TODO : ecrire epc
+    if not output_file_path.endswith(".zip"):
+        output_file_path = output_file_path + ".zip"
+
+    with ZipFile(output_file_path, "w") as zip_file:
+        for msg in result_get_do:
+            if isinstance(msg.body, GetDataObjectsResponse):
+                for _id, do in msg.body.data_objects.items():
+                    obj_uri = parse_uri(do.resource.uri)
+                    obj_path = f"{obj_uri.object_type}_{obj_uri.uuid}.xml"
+                    print(f"Storing file : {obj_path}")
+                    with zip_file.open(obj_path, "w") as xml_file:
+                        xml_file.write(do.data)
+            else:
+                print(f"Not a dataobject :{type(msg.body)} : {msg.body}")

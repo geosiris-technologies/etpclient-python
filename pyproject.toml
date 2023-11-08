@@ -49,8 +49,9 @@ websocket-client = "^1.0.0"
 requests = "^2.25.1"
 ipykernel = "^6.5.1"
 h5py = "^3.7.0"
-etptypes = "^1.0.1"
+etptypes = "^1.0.4"
 etpproto = "^1.0.2"
+pytest = "^7.4.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0.0"
