@@ -200,7 +200,6 @@ def print_protocol_exception(pe: ProtocolException):
 
 @ETPConnection.on(CommunicationProtocol.CORE)
 class myCoreProtocol(CoreHandler):
-
     uuid: Uuid = pyUUID.uuid4()
 
     async def on_open_session(
@@ -301,7 +300,6 @@ class myDiscoveryProtocol(DiscoveryHandler):
                 print("No deleted resource found for this context")
 
         yield
-
 
     async def on_acknowledge(
         self,
@@ -642,6 +640,7 @@ class mySupportedTypesProtocol(SupportedTypesHandler):
 #  ___/ /  __/ /   | |/ /  __/ /     / /___/ /_/ / /_/ (__  )
 # /____/\___/_/    |___/\___/_/      \____/\__,_/ .___/____/
 #                                              /_/
+
 
 # ATTENTION : A FAIRE EN DERNIER ! a cause de supportedProtocolList_fun()
 @ETPConnection.dec_server_capabilities()
