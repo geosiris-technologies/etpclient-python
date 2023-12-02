@@ -17,7 +17,7 @@ jobs:
     steps:
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -54,7 +54,7 @@ jobs:
   #         python-version: '3.9'
 
   #     - name: Checkout code
-  #       uses: actions/checkout@v3
+  #       uses: actions/checkout@v4
   #       with:
   #         fetch-depth: 0
 
@@ -92,7 +92,7 @@ jobs:
 
       # Retrieve the code and GIT history so that poetry-dynamic-versioning knows which version to upload
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
