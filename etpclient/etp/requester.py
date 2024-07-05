@@ -2,8 +2,17 @@
 # Copyright (c) 2022-2023 Geosiris.
 # SPDX-License-Identifier: Apache-2.0
 #
+import os
 import re
+import zipfile
 from zipfile import ZipFile
+
+import h5py
+import numpy as np
+from etptypes.energistics.etp.v12.datatypes.any_array import AnyArray
+from etptypes.energistics.etp.v12.datatypes.data_array_types.put_data_subarrays_type import PutDataSubarraysType
+from etptypes.energistics.etp.v12.protocol.data_array.get_data_arrays_response import GetDataArraysResponse
+from etptypes.energistics.etp.v12.protocol.data_array.put_data_subarrays import PutDataSubarrays
 from lxml import etree
 from io import BytesIO
 
@@ -80,7 +89,10 @@ from etptypes.energistics.etp.v12.protocol.store.delete_data_objects import (
 from etptypes.energistics.etp.v12.datatypes.object.data_object import (
     DataObject,
 )
-
+from etptypes.energistics.etp.v12.protocol.core.authorize_response import (
+    AuthorizeResponse,
+)
+from etptypes.energistics.etp.v12.protocol.core.authorize import Authorize
 from etptypes.energistics.etp.v12.datatypes.data_array_types.data_array_identifier import (
     DataArrayIdentifier,
 )
@@ -118,6 +130,7 @@ from etpproto.connection import ETPConnection, CommunicationProtocol
 from etpproto.uri import parse_uri
 
 from etpclient.etp.h5_handler import generate_put_data_arrays
+from etpclient.utils import basic_auth_encode, basic_auth_header, get_xml_dict_from_string, search_all_element_value
 
 from etpclient.utils import (
     xml_get_type,
@@ -163,6 +176,12 @@ local_protocols = [
     ),
     SupportedProtocol(
         protocol=CommunicationProtocol.DATASPACE.value,
+        protocolVersion=etp_version,
+        role="store",
+        protocolCapabilities={},
+    ),
+    SupportedProtocol(
+        protocol=CommunicationProtocol.DATA_ARRAY.value,
         protocolVersion=etp_version,
         role="store",
         protocolCapabilities={},
@@ -229,7 +248,7 @@ def get_root_type_in_xml(xml_content: bytes) -> str:
 
 
 def request_session():
-    return RequestSession(
+    rq = RequestSession(
         applicationName="Geosiris etp client",
         applicationVersion="0.0.1",
         clientInstanceId=uuid.uuid4(),
@@ -241,6 +260,8 @@ def request_session():
         endpointCapabilities={},
         earliest_retained_change_time=0,
     )
+    print(rq)
+    return rq
 
 
 def get_scope(scope: str):
@@ -259,7 +280,21 @@ def get_scope(scope: str):
     return ContextScopeKind.SELF
 
 
-def get_resouces(uri: str = "eml:///", depth: int = 1, scope=None):
+def authorize_basic(username: str, password: str):
+    return Authorize(
+        authorization=f"Basic {basic_auth_encode(username, password)}",
+        supplemental_authorization={},
+    )
+
+
+def authorize_bearer(token: str):
+    return Authorize(
+        authorization=f"Bearer {token}",
+        supplemental_authorization={},
+    )
+
+
+def get_resouces(uri: str = "eml:///", depth: int = 1, scope=None, data_object_types: Optional[List[str]] = []):
     if uri is not None:
         if not uri.startswith("eml:///"):
             uri = f"eml:///dataspace('{uri}')"
@@ -269,7 +304,7 @@ def get_resouces(uri: str = "eml:///", depth: int = 1, scope=None):
         context=ContextInfo(
             uri=uri,
             depth=depth,
-            dataObjectTypes=[],
+            dataObjectTypes=data_object_types,
             navigableEdges=RelationshipKind.PRIMARY,
         ),
         scope=get_scope(scope),
@@ -284,8 +319,8 @@ def get_dataspaces():
     return GetDataspaces()
 
 
-async def extractResqmlUuid(content: str):
-    return await findUuid(content)
+def extractResqmlUuid(content: str):
+    return findUuid(content)
 
 
 XML_TYPE_REGXP = r"<([\w]+:)?([\w]+)"
@@ -297,17 +332,17 @@ def extractResqmlURI(content: str, dataspace_name: str = None):
     result = pattern.search(content)
     # print("result ", result)
     return (
-        "eml:///"
-        + (
-            "dataspace('" + dataspace_name + "')/"
-            if dataspace_name is not None
-            else ""
-        )
-        + "resqml20."
-        + result.group(2)
-        + "("
-        + extractResqmlUuid(content)
-        + ")"
+            "eml:///"
+            + (
+                "dataspace('" + dataspace_name + "')/"
+                if dataspace_name is not None
+                else ""
+            )
+            + "resqml20."
+            + result.group(2)
+            + "("
+            + extractResqmlUuid(content)
+            + ")"
     )
 
 
@@ -347,9 +382,9 @@ def delete_data_object(uris: list):
 
 
 def get_deleted_resources(
-    dataspace_names: str,
-    delete_time_filter: int = None,
-    data_object_types: list = [],
+        dataspace_names: str,
+        delete_time_filter: int = None,
+        data_object_types: list = [],
 ):
     ds_uri = (
         "eml:///dataspace('" + dataspace_names + "')"
@@ -364,7 +399,7 @@ def get_deleted_resources(
 
 
 def put_data_object_by_path(
-    path: str, dataspace_name: str = None, uuids_filter: list = None
+        path: str, dataspace_name: str = None, uuids_filter: list = None
 ):
     result = []
     # try:
@@ -388,9 +423,9 @@ def put_data_object_by_path(
                                 uuid = find_uuid_in_xml(file_content)
                             print(f"UUID {uuid}")
                             if uuid is not None and (
-                                uuids_filter is None
-                                or len(uuids_filter) == 0
-                                or uuid in uuids_filter
+                                    uuids_filter is None
+                                    or len(uuids_filter) == 0
+                                    or uuid in uuids_filter
                             ):
                                 do_lst[len(do_lst)] = _create_data_object(
                                     file_content.decode("utf-8"),
@@ -468,10 +503,10 @@ def get_close_session(reason="We have finished"):
 
 
 def get_supported_types(
-    uri: str,
-    count: bool = True,
-    return_empty_types: bool = True,
-    scope: str = "self",
+        uri: str,
+        count: bool = True,
+        return_empty_types: bool = True,
+        scope: str = "self",
 ):
     if not uri.startswith("eml:///"):
         uri = f"eml:///dataspace('{uri}')"
@@ -506,8 +541,23 @@ def get_data_array_metadata(uri: str, path_in_res: str):
     )
 
 
+def put_data_sub_array(
+        uri: str, path_in_hdf, data: AnyArray, starts: List, counts: List
+):
+    return PutDataSubarrays(
+        data_subarrays={
+            "0": PutDataSubarraysType(
+                uid=DataArrayIdentifier(uri=uri, path_in_resource=path_in_hdf),
+                data=data,
+                starts=starts,
+                counts=counts,
+            )
+        }
+    )
+
+
 def get_data_array(
-    uri: str, path_in_res: str, start: int = None, count: int = None
+        uri: str, path_in_res: str, start: int = None, count: int = None
 ):
     if start is not None and count is not None:
         return GetDataSubarrays(
@@ -530,10 +580,10 @@ def get_data_array(
 
 
 def put_data_array(
-    uuids_filter: list,
-    epc_or_xml_file_path: str,
-    h5_file_path: str,
-    dataspace_name: str,
+        uuids_filter: list,
+        epc_or_xml_file_path: str,
+        h5_file_path: str,
+        dataspace_name: str,
 ):
     print("FILE ", epc_or_xml_file_path)
     result = []
@@ -541,14 +591,14 @@ def put_data_array(
         zfile = zipfile.ZipFile(epc_or_xml_file_path, "r")
         for zinfo in zfile.infolist():
             if (
-                zinfo.filename.endswith(".xml")
-                and findUuid(zinfo.filename) is not None
+                    zinfo.filename.endswith(".xml")
+                    and findUuid(zinfo.filename) is not None
             ):
                 uuid = findUuid(zinfo.filename)
                 if (
-                    uuids_filter is None
-                    or len(uuids_filter) == 0
-                    or uuid in uuids_filter
+                        uuids_filter is None
+                        or len(uuids_filter) == 0
+                        or uuid in uuids_filter
                 ):
                     print("> Uuid filtered: ", uuid)
                     # with zfile.open(zinfo.filename) as myfile:
@@ -570,12 +620,12 @@ def put_data_array(
 
 
 async def put_data_array_sender(
-    websocket,
-    uuids_filter: list,
-    epc_or_xml_file_path: str,
-    h5_file_path: str,
-    dataspace_name: str,
-    type_filter: str = None,
+        websocket,
+        uuids_filter: list,
+        epc_or_xml_file_path: str,
+        h5_file_path: str,
+        dataspace_name: str,
+        type_filter: str = None,
 ):
     print(
         f"uuids_filter : {uuids_filter} epc_or_xml_file_path : {epc_or_xml_file_path} h5_file_path : {h5_file_path} dataspace_name : {dataspace_name} type_filter : {type_filter} "
@@ -584,14 +634,14 @@ async def put_data_array_sender(
         zfile = zipfile.ZipFile(epc_or_xml_file_path, "r")
         for zinfo in zfile.infolist():
             if (
-                zinfo.filename.endswith(".xml")
-                and findUuid(zinfo.filename) is not None
+                    zinfo.filename.endswith(".xml")
+                    and findUuid(zinfo.filename) is not None
             ):
                 uuid = findUuid(zinfo.filename)
                 accept_file = (
-                    uuids_filter is None
-                    or len(uuids_filter) == 0
-                    or uuid in uuids_filter
+                        uuids_filter is None
+                        or len(uuids_filter) == 0
+                        or uuid in uuids_filter
                 )
                 if type_filter is not None:
                     with zfile.open(zinfo.filename) as myfile:
@@ -607,9 +657,9 @@ async def put_data_array_sender(
                     print(" > accept_file Uuid : ", uuid)
                     with zfile.open(zinfo.filename) as myfile:
                         for pda in generate_put_data_arrays(
-                            myfile.read().decode("utf-8"),
-                            h5_file_path,
-                            dataspace_name,
+                                myfile.read().decode("utf-8"),
+                                h5_file_path,
+                                dataspace_name,
                         ):
                             # print(type(pda), pda)
                             try:
@@ -623,7 +673,7 @@ async def put_data_array_sender(
     else:
         with open(epc_or_xml_file_path) as f:
             for pda in generate_put_data_arrays(
-                f.read().decode("utf-8"), h5_file_path, dataspace_name
+                    f.read().decode("utf-8"), h5_file_path, dataspace_name
             ):
                 try:
                     yield await websocket.send_no_wait(pda)
@@ -632,7 +682,7 @@ async def put_data_array_sender(
 
 
 async def download_dataspace(
-    ws, output_file_path: str, dataspace_name: str = None
+        ws, output_file_path: str, dataspace_name: str = None
 ):
     get_res = get_resouces(uri=dataspace_name, depth=1, scope="sources")
     result_get_res = await ws.send_and_wait(get_res)
@@ -681,3 +731,52 @@ async def download_dataspace(
                         xml_file.write(do.data)
             else:
                 print(f"Not a dataobject :{type(msg.body)} : {msg.body}")
+
+
+async def download_xml_and_h5(
+        ws, output_folder: str, uri: str
+):
+    try:
+        os.mkdir(output_folder)
+    except:
+        pass
+    etp_uri = parse_uri(uri)
+    xml_path = f"{output_folder}/{etp_uri.uuid}.xml"
+    h5_path = f"{output_folder}/{etp_uri.uuid}.h5"
+
+    result_get_do = []
+    get_do = get_data_object([uri], format="xml")
+    result_get_do = result_get_do + await ws.send_and_wait(get_do)
+
+    with ZipFile(xml_path, "a") as zip_file:
+        for msg in result_get_do:
+            if isinstance(msg.body, GetDataObjectsResponse):
+                for _id, do in msg.body.data_objects.items():
+                    obj_uri = parse_uri(do.resource.uri)
+                    obj_path = f"{obj_uri.object_type}_{obj_uri.uuid}.xml"
+                    print(f"Storing file : {obj_path}")
+                    with zip_file.open(obj_path, "w") as xml_file:
+                        xml_file.write(do.data)
+                    await download_h5(ws, uri, h5_path, do.data)
+            else:
+                print(f"Not a dataObject :{type(msg.body)} : {msg.body}")
+
+
+async def download_h5(ws, uri: str, output_file_path: str, energyml_xml: Union[str, bytes]):
+    if isinstance(energyml_xml, bytes):
+        energyml_xml = energyml_xml.decode("utf-8")
+
+    obj_dict = get_xml_dict_from_string(energyml_xml)
+
+    for path_in_hdf in search_all_element_value(
+        obj_dict, "PathInExternalFile"
+    ) + search_all_element_value(obj_dict, "PathInHdfFile"):
+        print(f"Downloading : {uri} {path_in_hdf}")
+        get_da = get_data_array(uri, path_in_hdf)
+        get_da_resp = await ws.send_and_wait(get_da)
+
+        if isinstance(get_da_resp[0].body, GetDataArraysResponse):
+            gdar: GetDataArraysResponse = get_da_resp[0].body
+            da = list(gdar.data_arrays.values())[0]
+            with h5py.File(output_file_path, "a") as f:
+                f[path_in_hdf] = np.array(da.data.item.values).reshape(*da.dimensions)

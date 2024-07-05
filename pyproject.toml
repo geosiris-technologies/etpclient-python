@@ -52,6 +52,8 @@ h5py = "^3.7.0"
 etptypes = "^1.0.4"
 etpproto = "^1.0.2"
 pytest = "^7.4.3"
+python-dotenv = "^1.0.1"
+
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0.0"
@@ -98,6 +100,11 @@ max-line-length = "88"
 
 [tool.poetry.scripts]
 client = "etpclient.main:main"
+script = "etpclient.scripter:main"
+file_script = "etpclient.scripter:file_script"
+download_xmls = "etpclient.scripter:download_xmls"
+test_psa = "etpclient.scripter:test_put_sub_array"
+init_gabbro = "etpclient.scripter:init_gabbro"
 
 [tool.poetry-dynamic-versioning]
 enable = true

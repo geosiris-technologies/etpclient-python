@@ -3,12 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import os
+from typing import List, Dict
+
 from fastavro import reader, schemaless_reader, schemaless_writer, writer
 from etptypes import avro_schema
 import json
 import sys
 import websocket
 import asyncio
+import logging
 
 try:
     import thread
@@ -18,8 +21,6 @@ except ImportError:
 import time
 from datetime import datetime
 
-from base64 import b64encode
-
 from etpproto.connection import ETPConnection, ConnectionType
 from etpproto.client_info import ClientInfo
 from etpproto.messages import Message
@@ -27,18 +28,7 @@ from etpproto.messages import Message
 import etpclient.etp.serverprotocols
 
 from etpclient.etp.requester import request_session
-
-import pprint
-
-pretty_p = pprint.PrettyPrinter(width=80)  # , compact=True)
-
-
-def basic_auth_header(username, password):
-    assert ":" not in username
-    user_pass = f"{username}:{password}"
-    basic_credentials = b64encode(user_pass.encode()).decode()
-    print("Credentials : 'Basic " + basic_credentials + "'")
-    return "authorization: Basic " + basic_credentials
+from etpclient.utils import basic_auth_encode, basic_auth_header
 
 
 async def wait_for_response(
@@ -48,8 +38,8 @@ async def wait_for_response(
     begining = datetime.now()
     while (datetime.now() - begining).seconds < timeout:
         # if (websocket_manager.recieved_msg_dict):
-        #     print("##----##")
-        #     pretty_p.pprint(websocket_manager.recieved_msg_dict)
+        #     logging.debug("##----##")
+        #     logging.debug(websocket_manager.recieved_msg_dict)
 
         if msg_id in websocket_manager.recieved_msg_dict and (
             isinstance(websocket_manager.recieved_msg_dict[msg_id], Message)
@@ -62,7 +52,9 @@ async def wait_for_response(
         ):
             return websocket_manager.recieved_msg_dict[msg_id]
         await asyncio.sleep(delta_t)
-    print("@Ws : ", websocket_manager.recieved_msg_dict)
+    # logging.debug("@Ws : ", websocket_manager.recieved_msg_dict)
+    # logging.debug("@Ws : ")
+    # logging.debug(websocket_manager.recieved_msg_dict)
     return None
 
 
@@ -73,40 +65,69 @@ class WebSocketManager:
         username: str = None,
         password: str = None,
         token: str = None,
+        additional_headers: Dict = None
     ):
         self.closed = False
         self.recieved_msg_dict = {}
-        print(f"Connecting to {uri}")
-        if token:
-            print("auth bearer : \n" + "authorization: Bearer " + token)
-            self.ws = websocket.WebSocketApp(
-                uri,
-                subprotocols=[ETPConnection.SUB_PROTOCOL],
-                header=["authorization: Bearer " + token],
-                on_open=self.on_open,
-                on_message=self.on_message,
-                on_error=self.on_error,
-                on_close=self.on_close,
-            )
-        elif username and password:
-            self.ws = websocket.WebSocketApp(
-                uri,
-                subprotocols=[ETPConnection.SUB_PROTOCOL],
-                header=[basic_auth_header(username, password)],
-                on_open=self.on_open,
-                on_message=self.on_message,
-                on_error=self.on_error,
-                on_close=self.on_close,
-            )
-        else:
-            self.ws = websocket.WebSocketApp(
-                uri,
-                subprotocols=[ETPConnection.SUB_PROTOCOL],
-                on_open=self.on_open,
-                on_message=self.on_message,
-                on_error=self.on_error,
-                on_close=self.on_close,
-            )
+        self.connected = False
+        logging.debug(f"Connecting to {uri}")
+
+        headers = {}
+        if token is not None:
+            headers["Authorization"] = "Bearer " + token
+        elif username is not None:
+            headers["Authorization"] = "Basic " + basic_auth_encode(username, password)
+
+        # headers["data-partition-id"] = "osdu"
+        # logging.debug(f"additional_headers {additional_headers}")
+        if isinstance(additional_headers, dict):
+            headers = headers | additional_headers
+        elif isinstance(additional_headers, list):
+            for a_h in additional_headers or []:
+                headers = headers | a_h
+
+#         logging.debug(f"Headers {headers}")
+
+        self.ws = websocket.WebSocketApp(
+            uri,
+            subprotocols=[ETPConnection.SUB_PROTOCOL],
+            header=headers,
+            on_open=self.on_open,
+            on_message=self.on_message,
+            on_error=self.on_error,
+            on_close=self.on_close,
+        )
+
+        # if token:
+        #     logging.debug("auth bearer : \n" + "authorization: Bearer " + token)
+        #     self.ws = websocket.WebSocketApp(
+        #         uri,
+        #         subprotocols=[ETPConnection.SUB_PROTOCOL],
+        #         header=["authorization: Bearer " + token],
+        #         on_open=self.on_open,
+        #         on_message=self.on_message,
+        #         on_error=self.on_error,
+        #         on_close=self.on_close,
+        #     )
+        # elif username and password:
+        #     self.ws = websocket.WebSocketApp(
+        #         uri,
+        #         subprotocols=[ETPConnection.SUB_PROTOCOL],
+        #         header=[basic_auth_header(username, password)],
+        #         on_open=self.on_open,
+        #         on_message=self.on_message,
+        #         on_error=self.on_error,
+        #         on_close=self.on_close,
+        #     )
+        # else:
+        #     self.ws = websocket.WebSocketApp(
+        #         uri,
+        #         subprotocols=[ETPConnection.SUB_PROTOCOL],
+        #         on_open=self.on_open,
+        #         on_message=self.on_message,
+        #         on_error=self.on_error,
+        #         on_close=self.on_close,
+        #     )
 
         self.etp_connection = ETPConnection(
             connection_type=ConnectionType.CLIENT,
@@ -122,46 +143,47 @@ class WebSocketManager:
 
         def run(websocket):
             websocket.ws.run_forever()
-            print("thread terminating...")
+            logging.debug("thread terminating...")
             websocket.etp_connection.is_connected = False
 
         thread.start_new_thread(run, (self,))
 
     def is_connected(self):
-        # print(self.etp_connection)
-        return self.etp_connection.is_connected
+        # logging.debug(self.etp_connection)
+        # return self.etp_connection.is_connected
+        return self.etp_connection.is_connected and not self.closed
 
     def on_message(self, ws, message):
-        # print("ON_MSG : ")
-        # print("ON_MSG : ", message)
+        # logging.debug("ON_MSG : ")
+        logging.debug(f"ON_MSG : {message}")
 
         async def handle_msg(
             conn: ETPConnection, websocket_manager, msg: bytes
         ):
             try:
-                # print("##> before recieved " )
+                # logging.debug("##> before recieved " )
                 recieved = Message.decode_binary_message(
                     msg,
                     dict_map_pro_to_class=ETPConnection.generic_transition_table,
                 )
                 if recieved.is_final_msg():
-                    print("\n##> recieved header : ", recieved.header)
-                    # print("\n##> recieved body : ", recieved.body, "\n\n")
+                    logging.debug(f"\n##> recieved header : {recieved.header}")
+                    # logging.debug("\n##> recieved body : ", recieved.body, "\n\n")
                     # if (
                     #     recieved.header.protocol == 0
                     #     or type(recieved.body) != bytes
                     # ):
-                    # print("ERR : ", recieved.body)
-                    print("##> body type : ", type(recieved.body))
-                    # print("##> body content : ", recieved.body)
+                    # logging.debug("ERR : ", recieved.body)
+                    logging.debug(f"##> body type : {type(recieved.body)}")
+                    # logging.debug("##> body content : ", recieved.body)
 
                     # msg = await conn.decode_partial_message(recieved)
 
-                    # print("##> msg " )
+                    # logging.debug("##> msg " )
                 if msg:
                     async for b_msg in conn.handle_bytes_generator(msg):
                         pass
-                        # print(b_msg)
+                        # logging.debug(b_msg)
                         # if (
                         #     b_msg.headers.correlation_id
                         #     not in websocket_manager.recieved_msg_dict[
@@ -185,43 +207,46 @@ class WebSocketManager:
                         recieved.header.correlation_id
                     ].append(recieved)
             except Exception as e:
-                print(f"#ERR: {type(e).__name__}")
-                print(f"#Err: {msg}")
+                logging.error(f"#ERR: {type(e).__name__}")
+                logging.error(f"#Err: {msg}")
                 raise e
 
         asyncio.run(handle_msg(self.etp_connection, self, message))
 
     def on_error(self, ws, error):
-        print("ON_ERR")
+        logging.debug("ON_ERR")
         try:
-            print(error)
+            logging.debug(error)
         except Exception as e:
-            print(e)
+            logging.debug(e)
 
     def on_close(self, ws, a, b):
-        # print("ON_CLOSE")
+        # logging.debug("ON_CLOSE")
+        self.closed = True
         try:
-            self.closed = True
-            print("### closed ###", a, "\n", b)
+            logging.info(f"### closed ###\n{a}\n{b}")
             sys.stdout.flush()
             self.etp_connection.is_connected = False
             sys.exit(1)
         except Exception as e:
-            print(e)
+            logging.error(e)
 
     def on_open(self, ws):
-        # print("OPENING")
+        # logging.debug("OPENING")
+        self.connected = True
         try:
             answer = asyncio.run(self.send_and_wait(request_session(), 4.0))
-            print("CONNECTED : ", answer)
-
+            logging.info(f"CONNECTED : {answer}")
         except Exception as e:
-            print(e)
+            logging.error(e)
+
+    async def send_raw(self, msg: bytes):
+        self.ws.send(msg)
 
     async def send_and_wait(self, req, timeout: int = 5):
-        # print("SENDING " + str(req))
-        # print("SENDING NW")
-        # await self.print_message(req)
+        # logging.debug("SENDING " + str(req))
+        # logging.debug("SENDING NW")
+        # await self.logging.debug_message(req)
         obj_msg = Message.get_object_message(etp_object=req)
 
         msg_id = -1
@@ -231,8 +256,10 @@ class WebSocketManager:
         ) in self.etp_connection.send_msg_and_error_generator(obj_msg, None):
             self.ws.send(msg_to_send, websocket.ABNF.OPCODE_BINARY)
             msg_id = m_id
-            print(f"@WS: [{m_id}] {obj_msg}")
-            # print("Msg sent... ", msg_to_send)
+            # logging.debug(f"@WS: [{m_id}] {obj_msg}")
+            logging.debug(f"@WS: [{m_id}]")
+            logging.debug(obj_msg)
+            # logging.debug("Msg sent... ", msg_to_send)
         # return wait_for_response(conn=self.etp_connection, msg_id = msg_id, timeout=timeout)
         result = await wait_for_response(
             conn=self.etp_connection,
@@ -240,14 +267,14 @@ class WebSocketManager:
             msg_id=msg_id,
             timeout=timeout,
         )
-        # print("Answer : \n", result)
-        # print("Answer recieved")
+        # logging.debug("Answer : \n", result)
+        # logging.debug("Answer recieved")
         return result
 
     async def send_no_wait(self, req, timeout: int = 5):
-        # print("SENDING NW" + str(req))
-        # print("SENDING NW")
-        # await self.print_message(req)
+        # logging.debug("SENDING NW" + str(req))
+        # logging.debug("SENDING NW")
+        # await self.logging.debug_message(req)
 
         msg_id_list = []
         msg_id = -1
@@ -271,13 +298,13 @@ class WebSocketManager:
                     json.loads(avro_schema(type(req))),
                     req.dict(by_alias=True),
                 )
-            print("====== header ======")
+            logging.debug("====== header ======")
             # Reading
             with open("test_unserialAvro_header.avro", "rb") as fo:
                 r_dict = schemaless_reader(
                     fo, json.loads(avro_schema(type(req)))
                 )
                 for record in r_dict:
-                    print(f"{record}: {r_dict[record]}")
+                    logging.debug(f"{record}: {r_dict[record]}")
         finally:
             os.remove("test_unserialAvro_header.avro")

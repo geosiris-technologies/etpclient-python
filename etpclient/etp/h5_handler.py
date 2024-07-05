@@ -2,7 +2,10 @@
 # Copyright (c) 2022-2023 Geosiris.
 # SPDX-License-Identifier: Apache-2.0
 #
+from typing import Dict
+
 import h5py
+import numpy as np
 
 from etpclient.utils import (
     search_all_element_value,
@@ -82,3 +85,10 @@ def generate_put_data_arrays(
         # res.append(h5_search_dataset(h5_file_path, path_in_hdf))
 
     return res
+
+
+def write_h5(h5_path: str, arrays: Dict):
+    with h5py.File(h5_path, "a") as f:
+        for d_name, d_array in arrays.items():
+            dset = f.create_dataset(d_name, d_array.shape, d_array.dtype)
+            dset[()] = d_array

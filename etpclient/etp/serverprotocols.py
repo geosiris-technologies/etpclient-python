@@ -9,6 +9,7 @@ import pprint
 import lxml.etree as etree
 import json
 
+from etpproto.error import NotSupportedError
 from etpproto.messages import Message
 from etptypes.energistics.etp.v12.datatypes.message_header import MessageHeader
 
@@ -64,6 +65,10 @@ from etptypes.energistics.etp.v12.protocol.core.protocol_exception import (
 from etptypes.energistics.etp.v12.protocol.core.request_session import (
     RequestSession,
 )
+from etptypes.energistics.etp.v12.protocol.core.authorize_response import (
+    AuthorizeResponse,
+)
+from etptypes.energistics.etp.v12.protocol.core.authorize import Authorize
 from etptypes.energistics.etp.v12.protocol.data_array.get_data_array_metadata import (
     GetDataArrayMetadata,
 )
@@ -172,30 +177,45 @@ pretty_p = pprint.PrettyPrinter(width=100, compact=True)
 # \____/\____/_/   \___/  / .___/_/   \____/\__/\____/\___/\____/_/
 #                        /_/
 
+__ENABLE__LOGS__ = True
+
+
+def enable_logs(v: bool):
+    global __ENABLE__LOGS__
+    __ENABLE__LOGS__ = v
+
+
+def log(*args,  pretty: bool = False, **kwargs):
+    if __ENABLE__LOGS__:
+        if pretty:
+            pretty_p.pprint(*args, **kwargs)
+        else:
+            print(*args, **kwargs)
+
 
 def print_resource(res: Resource):
-    print("Resource :", res.uri)
-    print("\tSource count :", res.source_count)
-    print("\tTarget count :", res.target_count)
-    # print("\tLast change :", datetime.fromtimestamp(res.last_changed))
+    log("Resource :", res.uri)
+    log("\tSource count :", res.source_count)
+    log("\tTarget count :", res.target_count)
+    # log("\tLast change :", datetime.fromtimestamp(res.last_changed))
 
 
 def print_dataspace(res: Dataspace):
-    print("Dataspace :", res.uri)
-    print("\tStore last write :", res.store_last_write)
-    print("\tStore created :", res.store_created)
-    print("\tPath :", res.path)
-    print("\ttCustom data :", res.custom_data)
-    # print("\tLast change :", datetime.fromtimestamp(res.last_changed))
+    log("Dataspace :", res.uri)
+    log("\tStore last write :", res.store_last_write)
+    log("\tStore created :", res.store_created)
+    log("\tPath :", res.path)
+    log("\ttCustom data :", res.custom_data)
+    # log("\tLast change :", datetime.fromtimestamp(res.last_changed))
 
 
 def print_protocol_exception(pe: ProtocolException):
     if pe.error is not None:
-        print("Error recieved : " + str(pe))
+        log("Error recieved : " + str(pe))
     elif len(pe.errors) > 0:
-        print(f"Errors recieved ({pe.errors}): ")
+        log(f"Errors recieved ({pe.errors}): ")
         for code, pe in pe.errors.items():
-            print(f"\t{code}) {str(pe)}")
+            log(f"\t{code}) {str(pe)}")
 
 
 @ETPConnection.on(CommunicationProtocol.CORE)
@@ -208,7 +228,7 @@ class myCoreProtocol(CoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print("OpenSession recieved")
+        log("OpenSession recieved")
         yield
 
     async def on_close_session(
@@ -217,7 +237,7 @@ class myCoreProtocol(CoreHandler):
         correlation_id: int,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_close_session")
+        log(client_info.ip, ": on_close_session")
         yield
 
     async def on_ping(
@@ -226,7 +246,7 @@ class myCoreProtocol(CoreHandler):
         correlation_id: int,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": #Core : Ping recieved")
+        log(client_info.ip, ": #Core : Ping recieved")
         yield Message.get_object_message(
             Pong(currentDateTime=int(datetime.utcnow().timestamp())),
             correlation_id=correlation_id,
@@ -238,7 +258,7 @@ class myCoreProtocol(CoreHandler):
         correlation_id: int,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": #Core : Pong recieved")
+        log(client_info.ip, ": #Core : Pong recieved")
         yield
 
     async def on_protocol_exception(
@@ -248,6 +268,25 @@ class myCoreProtocol(CoreHandler):
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         print_protocol_exception(msg)
+        yield
+
+    async def on_authorize(
+        self,
+        msg: Authorize,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        yield NotSupportedError().to_etp_message(
+            correlation_id=msg_header.message_id
+        )
+
+    async def on_authorize_response(
+        self,
+        msg: AuthorizeResponse,
+        msg_header: MessageHeader,
+        client_info: Union[None, ClientInfo] = None,
+    ) -> AsyncGenerator[Optional[Message], None]:
+        log(f"AuthorizeResponse {msg.json()}")
         yield
 
 
@@ -267,7 +306,7 @@ class myDiscoveryProtocol(DiscoveryHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(
+        log(
             "## myDiscoveryProtocol ## on_get_resources_response : nb[",
             len(msg.resources),
             "]",
@@ -293,11 +332,11 @@ class myDiscoveryProtocol(DiscoveryHandler):
     ) -> AsyncGenerator[Optional[Message], None]:
         if msg is not None:
             if len(msg.deleted_resources) > 0:
-                print(f"Deleted object list ({len(msg.deleted_resources)}) : ")
+                log(f"Deleted object list ({len(msg.deleted_resources)}) : ")
                 for dr in msg.deleted_resources:
-                    print(f"\t{dr.uri} \tdeleted_time: \t{dr.deleted_time}")
+                    log(f"\t{dr.uri} \tdeleted_time: \t{dr.deleted_time}")
             else:
-                print("No deleted resource found for this context")
+                log("No deleted resource found for this context")
 
         yield
 
@@ -307,7 +346,7 @@ class myDiscoveryProtocol(DiscoveryHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print(f"Message recieved {msg}")
+        log(f"Message recieved {msg}")
         yield
 
 
@@ -327,10 +366,8 @@ class myDataspaceHandler(DataspaceHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_delete_dataspaces")
-        etpObj, etpErr = await etp_bridge.handle_request(msg, client_info)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_delete_dataspaces")
+        yield
 
     async def on_get_dataspaces(
         self,
@@ -338,10 +375,8 @@ class myDataspaceHandler(DataspaceHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_get_dataspaces")
-        etpObj, etpErr = await etp_bridge.handle_request(msg, client_info)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_get_dataspaces")
+        yield
 
     async def on_put_dataspaces(
         self,
@@ -349,10 +384,8 @@ class myDataspaceHandler(DataspaceHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_put_dataspaces")
-        etpObj, etpErr = await etp_bridge.handle_request(msg, client_info)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_put_dataspaces")
+        yield
 
     async def on_delete_dataspaces_response(
         self,
@@ -360,7 +393,7 @@ class myDataspaceHandler(DataspaceHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        pretty_p.pprint(msg)
+        # log(msg, pretty=True)
         yield
         # raise NotSupportedError()
 
@@ -381,7 +414,7 @@ class myDataspaceHandler(DataspaceHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        pretty_p.pprint(msg)
+        log(msg, pretty=True)
         yield
         # raise NotSupportedError()
 
@@ -411,10 +444,8 @@ class myStoreProtocol(StoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_get_data_objects")
-        etpObj, etpErr = await etp_bridge.handle_request(msg, client_info)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_get_data_objects")
+        yield
 
     async def on_put_data_objects(
         self,
@@ -422,10 +453,8 @@ class myStoreProtocol(StoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_put_data_objects")
-        etpObj, etpErr = await etp_bridge.handle_request(msg, client_info)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_put_data_objects")
+        yield
 
     async def on_delete_data_objects(
         self,
@@ -433,10 +462,8 @@ class myStoreProtocol(StoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_delete_data_objects")
-        etpObj, etpErr = await etp_bridge.handle_request(msg, client_info)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_delete_data_objects")
+        yield
 
     async def on_get_data_objects_response(
         self,
@@ -444,20 +471,20 @@ class myStoreProtocol(StoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print("# on_get_data_objects_response")
-        # pretty_p.pprint(msg)
+        log("# on_get_data_objects_response")
+        # log(msg, pretty=True)
         for do in msg.data_objects.values():
             form = do.format_.lower()
             try:
                 if form == "xml":
-                    print(do.data.decode("utf-8"))
+                    log(do.data.decode("utf-8"))
                 elif form == "json":
                     json.dumps(
                         json.loads(do.data.data.decode("utf-8")), indent=4
                     )
             except Exception as e:
-                print("\n\n=============", e, "\n")
-                pretty_p.pprint(do)
+                log("\n\n=============", e, "\n")
+                log(do, pretty=True)
 
         yield
 
@@ -467,9 +494,9 @@ class myStoreProtocol(StoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(f"Success {len(msg.success)}:")
+        log(f"Success {len(msg.success)}:")
         for code, pr in msg.success.items():
-            print(f"\t{code}) {str(pr.created_contained_object_uris)}")
+            log(f"\t{code}) {str(pr.created_contained_object_uris)}")
         yield
 
     async def on_delete_data_objects_response(
@@ -478,9 +505,9 @@ class myStoreProtocol(StoreHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print(f"Deletion success {len(msg.deleted_uris)}:")
+        log(f"Deletion success {len(msg.deleted_uris)}:")
         for code, aos in msg.deleted_uris.items():
-            print(f"\t{code}) {str(aos)}")
+            log(f"\t{code}) {str(aos)}")
         yield
 
     async def on_protocol_exception(
@@ -511,10 +538,8 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_get_data_array_metadata")
-        etpObj, etpErr = myDataArrayHandler.hsdsbridge.handle_metadata(msg)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_get_data_array_metadata")
+        yield
 
     async def on_get_data_array_metadata_response(
         self,
@@ -522,7 +547,7 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print(client_info.ip, msg)
+        log(client_info.ip, msg)
         yield
 
     async def on_get_data_arrays(
@@ -531,10 +556,8 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_get_data_arrays")
-        etpObj, etpErr = myDataArrayHandler.hsdsbridge.send_request(msg)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_get_data_arrays")
+        yield
 
     async def on_get_data_subarrays(
         self,
@@ -542,10 +565,8 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_get_data_subarrays")
-        etpObj, etpErr = myDataArrayHandler.hsdsbridge.send_request(msg)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
-        yield etpErr
+        log(client_info.ip, ": on_get_data_subarrays")
+        yield
 
     async def on_get_data_arrays_response(
         self,
@@ -553,7 +574,7 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print(client_info.ip, msg)
+        log(client_info.ip, msg)
         yield
 
     async def on_get_data_subarrays_response(
@@ -562,7 +583,7 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print(client_info.ip, msg)
+        log(client_info.ip, msg)
         yield
 
     async def on_put_data_arrays(
@@ -571,9 +592,9 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_put_data_arrays")
+        log(client_info.ip, ": on_put_data_arrays")
         etpObj, etpErr = myDataArrayHandler.hsdsbridge.send_request(msg)
-        yield Message.get_object_message(etpObj, correlation_id=correlation_id)
+        yield Message.get_object_message(etpObj, correlation_id=msg_header.message_id)
         yield etpErr
 
     async def on_put_data_arrays_response(
@@ -582,7 +603,7 @@ class myDataArrayHandler(DataArrayHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[Optional[Message], None]:
-        print(client_info.ip, msg)
+        log(client_info.ip, msg)
         yield
 
     async def on_protocol_exception(
@@ -611,7 +632,7 @@ class mySupportedTypesProtocol(SupportedTypesHandler):
         msg_header: MessageHeader,
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
-        print(client_info.ip, ": on_get_supported_types")
+        log(client_info.ip, ": on_get_supported_types")
         yield
 
     async def on_get_supported_types_response(
@@ -621,7 +642,7 @@ class mySupportedTypesProtocol(SupportedTypesHandler):
         client_info: Union[None, ClientInfo] = None,
     ) -> AsyncGenerator[bytes, None]:
         for st in msg.supported_types:
-            print(f"\t{st.data_object_type}\t count : {str(st.object_count)}")
+            log(f"\t{st.data_object_type}\t count : {str(st.object_count)}")
         yield
 
     async def on_protocol_exception(
@@ -647,7 +668,7 @@ class mySupportedTypesProtocol(SupportedTypesHandler):
 def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
     protocolDict = supportedProtocolList_fun()
 
-    # pretty_p.pprint(protocolDict)
+    # log(protocolDict, pretty=True)
 
     return ServerCapabilities(
         application_name="etpproto",
@@ -684,30 +705,30 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
             #         "SupportsGet": DataValue(item=True),
             #     },
             # ),
+            SupportedDataObject(
+                qualified_type="resqml20.*",
+                data_object_capabilities={
+                    "SupportsDelete": DataValue(item=True),
+                    "SupportsPut": DataValue(item=True),
+                    "SupportsGet": DataValue(item=True),
+                },
+            ),
             # SupportedDataObject(
-            #     qualified_type="resqml20.*",
+            #     qualified_type="witsml20.*",
             #     data_object_capabilities={
             #         "SupportsDelete": DataValue(item=True),
             #         "SupportsPut": DataValue(item=True),
             #         "SupportsGet": DataValue(item=True),
             #     },
             # ),
-            SupportedDataObject(
-                qualified_type="witsml20.*",
-                data_object_capabilities={
-                    "SupportsDelete": DataValue(item=True),
-                    "SupportsPut": DataValue(item=True),
-                    "SupportsGet": DataValue(item=True),
-                },
-            ),
-            SupportedDataObject(
-                qualified_type="witsml21.*",
-                data_object_capabilities={
-                    "SupportsDelete": DataValue(item=True),
-                    "SupportsPut": DataValue(item=True),
-                    "SupportsGet": DataValue(item=True),
-                },
-            ),
+            # SupportedDataObject(
+            #     qualified_type="witsml21.*",
+            #     data_object_capabilities={
+            #         "SupportsDelete": DataValue(item=True),
+            #         "SupportsPut": DataValue(item=True),
+            #         "SupportsGet": DataValue(item=True),
+            #     },
+            # ),
         ],
         # supported_compression=["gzip"],
         supported_formats=["xml"],
