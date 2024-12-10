@@ -1,0 +1,11 @@
+url: wss://XXX
+port: 80
+username: XXX
+password: XXX
+additional-headers:
+  - data-partition-id: osdu
+
+token-url: https://XXX
+token-grant-type: client_credentials
+token-scope: openid profile email
+token-refresh_token:

@@ -1,3 +1,4 @@
+.idea
 __pycache__
 .python-version
 .tox
@@ -18,9 +19,6 @@ dist
 *.sublime-project
 *.sublime-workspace
 venv/
-manip
-test-data/
-manip.txt
 demos/
 *.epc
 *.h5
@@ -28,3 +26,13 @@ demos/
 *.txt
 output*
 *.log
+
+.env
+config/*_.yml
+config/*_.yaml
+
+
+downloads
+manip
+test-data/
+manip.txt

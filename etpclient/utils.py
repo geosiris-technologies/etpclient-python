@@ -4,7 +4,18 @@
 #
 import re
 from lxml import etree
+from base64 import b64encode
 
+
+def basic_auth_encode(username: str, password: str):
+    assert ":" not in username
+    user_pass = f"{username}:{password}"
+    return b64encode(user_pass.encode()).decode()
+
+def basic_auth_header(username: str, password: str):
+    basic_credentials = basic_auth_encode(username, password)
+    print("Credentials : 'Basic " + basic_credentials + "'")
+    return "authorization: Basic " + basic_credentials
 
 def get_class_attributes(cls):
     att_and_type_list = []
