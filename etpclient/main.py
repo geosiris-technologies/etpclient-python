@@ -61,6 +61,8 @@ def helper():
 
 
 async def launch_command(wsm: WebSocketManager, cmd: str) -> bool:
+    if len(cmd.strip()) <= 0:
+        return True
     args = list(filter(lambda x: len(x) > 0, cmd.split(" ")))
     command = args[0].lower()
     command_params = args[1:] if len(args) > 1 else []
@@ -169,12 +171,13 @@ async def launch_command(wsm: WebSocketManager, cmd: str) -> bool:
                 )
 
             print(f"\n\n{get_data_arr}\n\n")
-            result = await wsm.send_no_wait(get_data_arr)
-            if result:
-                pretty_p.pprint(result)
-                pass
+            config = ServerConfig()
+            rest_client = rest_client_from_config(config)
+            if config[USE_REST]:
+                logging.info("USING rest")
+                pretty_p.pprint(rest_client.get_dataarray_from_gda(get_data_arr.json(by_alias=True)))
             else:
-                print("No answer...")
+                await wsm.send_no_wait(get_data_arr)
 
     elif command.startswith("getdataobject"):
         get_data_obj = get_data_object(command_params)
@@ -236,7 +239,7 @@ async def launch_command(wsm: WebSocketManager, cmd: str) -> bool:
             print(f"\n\nCommand is '{cmd}'")
             if len(command_params) < 2:
                 print(
-                    "Not enough paratmeter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH"
+                    "Not enough parameter : need a DATASPACE, an EPC_FILE_PATH and a H5_FILE_PATH"
                 )
             else:
                 type_filter = None

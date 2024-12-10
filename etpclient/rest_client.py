@@ -156,6 +156,28 @@ class EtpRestClient:
             bearer_token=self.bearer_token,
         )
 
+    def get_dataarray_from_gda(self, gda: dict):
+        url = f"{self.host}/data-array/get"
+        print(f"URL: {url}")
+        return EtpRestClient.make_request(
+            method=HttpMethod.POST,
+            url=url,
+            data=gda,
+            add_headers=self.headers,
+            bearer_token=self.bearer_token,
+        )
+
+    def put_dataarray(self, pda: dict):
+        url = f"{self.host}/data-array/put"
+        print(f"URL: {url}")
+        return EtpRestClient.make_request(
+            method=HttpMethod.POST,
+            url=url,
+            data=pda,
+            add_headers=self.headers,
+            bearer_token=self.bearer_token,
+        )
+
     def s_download_dataspace(self, dataspace_name: str, output_folder: str, h5_for_each: bool = False, download_h5: bool = True, download_xml: bool = True) -> None:
         self.s_download_objects(list(map(lambda x: x['uri'], self.get_resources(dataspace_name).json())), output_folder, h5_for_each, download_h5, download_xml)
 
@@ -264,7 +286,7 @@ class EtpRestClient:
         if not response.ok:
             response.raise_for_status()
 
-        return response
+        return response.json()
 
     @staticmethod
     def make_request(
@@ -280,22 +302,39 @@ class EtpRestClient:
         add_headers = add_headers or {}
         params = params or {}
 
+        if isinstance(add_headers, list):
+            res = {}
+            for o in add_headers:
+                if isinstance(o, dict):
+                    res = res | o
+                elif isinstance(o, tuple):
+                    res[o[0]] = o[1]
+
+            add_headers = res
+
         headers = {
             'content-type': 'application/json',
         }
-
+        print(add_headers)
         for key, value in add_headers.items():
             headers[key] = value
 
-        if no_auth:
+        if no_auth or bearer_token == None:
             response = EtpRestClient._send_request(method, url, data, headers, params)
-        elif bearer_token:
+        else:  #bearer_token:
             response = EtpRestClient._send_request_with_bearer_token(method, url, data, headers, params, bearer_token)
         # elif cls.token_refresher:
         #     response = self._send_request_with_token_refresher(headers, method, url, data, params)
-        else:
-            raise RequestError()
-        return response
+        # else:
+        #     raise RequestError()
+        if not response.ok:
+            response.raise_for_status()
+
+        return response.json()
+
+
+def rest_client_from_config(config: ServerConfig) -> EtpRestClient:
+    return EtpRestClient(host= config[SERVER_URL], headers=config[SERVER_ADDITIONAL_HEADERS], bearer_token=config[SERVER_TOKEN] or get_token_from_config(config))
 
 
 if __name__ == "__main__":

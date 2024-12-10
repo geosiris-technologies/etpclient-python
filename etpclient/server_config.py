@@ -21,6 +21,7 @@ SERVER_TOKEN_URL = "token-url"
 SERVER_TOKEN_GRANT_TYPE = "token-grant-type"
 SERVER_TOKEN_SCOPE = "token-scope"
 SERVER_TOKEN_REFRESH_TOKEN = "token-refresh_token"
+USE_REST = "use-rest"
 
 
 def replace_env_templates(value: Any):

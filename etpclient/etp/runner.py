@@ -123,7 +123,15 @@ def get_parser():
     # )
     # parser.add_argument("--token", "-t", type=str, help="An access token")
     parser.add_argument(
-        "--caps", action="store_true", help="print http capabilities"
+        "--caps", type=List, help="print http capabilities"
+    )
+    return parser
+
+
+def get_parser_downloader():
+    parser = get_parser()
+    parser.add_argument(
+        "-f", "--filter", nargs="*", default=[], help="qualifiedType list to filter the objects to download"
     )
     return parser
 
@@ -231,6 +239,7 @@ async def client(
         print("Timeout...")
 
     result = None
+    print(f"run func {run_func} running {running} wsm {wsm.is_connected()} {wsm.closed}")
 
     while running:
         running = await run_func(wsm)

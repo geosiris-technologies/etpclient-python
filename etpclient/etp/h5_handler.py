@@ -2,20 +2,18 @@
 # Copyright (c) 2022-2023 Geosiris.
 # SPDX-License-Identifier: Apache-2.0
 #
+import logging
 from typing import Dict
 
 import h5py
-import numpy as np
+from etptypes.energistics.etp.v12.protocol.data_array.put_data_arrays import (
+    PutDataArrays,
+)
 
 from etpclient.utils import (
     search_all_element_value,
-    get_xml_dict_from_path,
     get_xml_dict_from_string,
     xml_dict_get_uri,
-)
-
-from etptypes.energistics.etp.v12.protocol.data_array.put_data_arrays import (
-    PutDataArrays,
 )
 
 
@@ -63,25 +61,29 @@ def generate_put_data_arrays(
     for path_in_hdf in search_all_element_value(
         obj_dict, "PathInExternalFile"
     ) + search_all_element_value(obj_dict, "PathInHdfFile"):
-        print(f"search in h5 {path_in_hdf}")
-        data, shape, dtype = h5_search_dataset(h5_file_path, path_in_hdf)
-        print(f"\t==> shape {shape}")
-        pda_dict = {
-            "dataArrays": {
-                "0": {
-                    "uid": {
-                        "uri": xml_dict_get_uri(obj_dict, dataspace),
-                        "pathInResource": path_in_hdf,
-                    },
-                    "array": {
-                        "dimensions": list(shape),
-                        "data": {"item": {"values": data.flatten().tolist()}},
-                    },
-                    "customData": {},
+        logging.info(f"search in h5 {path_in_hdf}")
+        try:
+            data, shape, dtype = h5_search_dataset(h5_file_path, path_in_hdf)
+            logging.info(f"\t==> shape {shape}")
+            pda_dict = {
+                "dataArrays": {
+                    "0": {
+                        "uid": {
+                            "uri": xml_dict_get_uri(obj_dict, dataspace),
+                            "pathInResource": path_in_hdf,
+                        },
+                        "array": {
+                            "dimensions": list(shape),
+                            "data": {"item": {"values": data.flatten().tolist()}},
+                        },
+                        "customData": {},
+                    }
                 }
             }
-        }
-        res.append(PutDataArrays.parse_obj(pda_dict))
+            res.append(PutDataArrays.parse_obj(pda_dict))
+        except Exception as e:
+            logging.error("Failed to find data")
+            logging.error(e)
         # res.append(h5_search_dataset(h5_file_path, path_in_hdf))
 
     return res

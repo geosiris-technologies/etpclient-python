@@ -2,80 +2,85 @@
 # Copyright (c) 2022-2023 Geosiris.
 # SPDX-License-Identifier: Apache-2.0
 #
-import os
-import re
+import uuid
 import zipfile
+from datetime import datetime
+from typing import List
 from zipfile import ZipFile
 
 import h5py
 import numpy as np
+from etpproto.connection import ETPConnection, CommunicationProtocol
+from etpproto.uri import *
+from etpproto.uri import parse_uri
 from etptypes.energistics.etp.v12.datatypes.any_array import AnyArray
+from etptypes.energistics.etp.v12.datatypes.data_array_types.data_array_identifier import (
+    DataArrayIdentifier,
+)
+from etptypes.energistics.etp.v12.datatypes.data_array_types.get_data_subarrays_type import (
+    GetDataSubarraysType,
+)
 from etptypes.energistics.etp.v12.datatypes.data_array_types.put_data_subarrays_type import PutDataSubarraysType
-from etptypes.energistics.etp.v12.protocol.data_array.get_data_arrays_response import GetDataArraysResponse
-from etptypes.energistics.etp.v12.protocol.data_array.put_data_subarrays import PutDataSubarrays
-from lxml import etree
-from io import BytesIO
-
-from lxml.etree import (
-    Element,
-    ElementTree,
-    fromstring,
-    XPath,
+from etptypes.energistics.etp.v12.datatypes.data_value import DataValue
+from etptypes.energistics.etp.v12.datatypes.object.active_status_kind import (
+    ActiveStatusKind,
 )
-
-from typing import List
-
-from etptypes.energistics.etp.v12.datatypes.supported_protocol import (
-    SupportedProtocol,
-)
-from etptypes.energistics.etp.v12.datatypes.supported_data_object import (
-    SupportedDataObject,
-)
-from etptypes.energistics.etp.v12.datatypes.version import Version
-
-import uuid
-from datetime import datetime
-
-from etpproto.messages import Message
-
 from etptypes.energistics.etp.v12.datatypes.object.context_info import (
     ContextInfo,
 )
 from etptypes.energistics.etp.v12.datatypes.object.context_scope_kind import (
     ContextScopeKind,
 )
-from etptypes.energistics.etp.v12.datatypes.object.active_status_kind import (
-    ActiveStatusKind,
+from etptypes.energistics.etp.v12.datatypes.object.data_object import (
+    DataObject,
 )
+from etptypes.energistics.etp.v12.datatypes.object.dataspace import Dataspace
 from etptypes.energistics.etp.v12.datatypes.object.relationship_kind import (
     RelationshipKind,
 )
-
-
-from etptypes.energistics.etp.v12.protocol.dataspace.get_dataspaces import (
-    GetDataspaces,
+from etptypes.energistics.etp.v12.datatypes.object.resource import Resource
+from etptypes.energistics.etp.v12.datatypes.supported_data_object import (
+    SupportedDataObject,
 )
+from etptypes.energistics.etp.v12.datatypes.supported_protocol import (
+    SupportedProtocol,
+)
+from etptypes.energistics.etp.v12.datatypes.version import Version
+from etptypes.energistics.etp.v12.protocol.core.authorize import Authorize
+from etptypes.energistics.etp.v12.protocol.core.close_session import (
+    CloseSession,
+)
+from etptypes.energistics.etp.v12.protocol.core.request_session import (
+    RequestSession,
+)
+from etptypes.energistics.etp.v12.protocol.data_array.get_data_array_metadata import (
+    GetDataArrayMetadata,
+)
+from etptypes.energistics.etp.v12.protocol.data_array.get_data_arrays import (
+    GetDataArrays,
+)
+from etptypes.energistics.etp.v12.protocol.data_array.get_data_arrays_response import GetDataArraysResponse
+from etptypes.energistics.etp.v12.protocol.data_array.get_data_subarrays import (
+    GetDataSubarrays,
+)
+from etptypes.energistics.etp.v12.protocol.data_array.put_data_subarrays import PutDataSubarrays
 from etptypes.energistics.etp.v12.protocol.dataspace.delete_dataspaces import (
     DeleteDataspaces,
+)
+from etptypes.energistics.etp.v12.protocol.dataspace.get_dataspaces import (
+    GetDataspaces,
 )
 from etptypes.energistics.etp.v12.protocol.dataspace.put_dataspaces import (
     PutDataspaces,
 )
-
-from etptypes.energistics.etp.v12.protocol.core.request_session import (
-    RequestSession,
-)
-from etptypes.energistics.etp.v12.protocol.core.close_session import (
-    CloseSession,
+from etptypes.energistics.etp.v12.protocol.discovery.get_deleted_resources import (
+    GetDeletedResources,
 )
 from etptypes.energistics.etp.v12.protocol.discovery.get_resources import (
     GetResources,
 )
-from etptypes.energistics.etp.v12.protocol.discovery.get_deleted_resources import (
-    GetDeletedResources,
-)
-from etptypes.energistics.etp.v12.protocol.store.put_data_objects import (
-    PutDataObjects,
+from etptypes.energistics.etp.v12.protocol.store.delete_data_objects import (
+    DeleteDataObjects,
 )
 from etptypes.energistics.etp.v12.protocol.store.get_data_objects import (
     GetDataObjects,
@@ -83,59 +88,27 @@ from etptypes.energistics.etp.v12.protocol.store.get_data_objects import (
 from etptypes.energistics.etp.v12.protocol.store.get_data_objects_response import (
     GetDataObjectsResponse,
 )
-from etptypes.energistics.etp.v12.protocol.store.delete_data_objects import (
-    DeleteDataObjects,
+from etptypes.energistics.etp.v12.protocol.store.put_data_objects import (
+    PutDataObjects,
 )
-from etptypes.energistics.etp.v12.datatypes.object.data_object import (
-    DataObject,
-)
-from etptypes.energistics.etp.v12.protocol.core.authorize_response import (
-    AuthorizeResponse,
-)
-from etptypes.energistics.etp.v12.protocol.core.authorize import Authorize
-from etptypes.energistics.etp.v12.datatypes.data_array_types.data_array_identifier import (
-    DataArrayIdentifier,
-)
-from etptypes.energistics.etp.v12.datatypes.data_array_types.get_data_subarrays_type import (
-    GetDataSubarraysType,
-)
-from etptypes.energistics.etp.v12.protocol.data_array.get_data_arrays import (
-    GetDataArrays,
-)
-from etptypes.energistics.etp.v12.protocol.data_array.get_data_subarrays import (
-    GetDataSubarrays,
-)
-
-from etptypes.energistics.etp.v12.protocol.data_array.get_data_array_metadata import (
-    GetDataArrayMetadata,
-)
-
-
 from etptypes.energistics.etp.v12.protocol.supported_types.get_supported_types import (
     GetSupportedTypes,
 )
-from etptypes.energistics.etp.v12.protocol.supported_types.get_supported_types_response import (
-    GetSupportedTypesResponse,
+from lxml import etree
+from lxml.etree import (
+    Element,
+    ElementTree,
+    fromstring,
+    XPath,
 )
-
-from etptypes.energistics.etp.v12.datatypes.data_value import DataValue
-from etptypes.energistics.etp.v12.datatypes.object.resource import Resource
-from etptypes.energistics.etp.v12.datatypes.object.dataspace import Dataspace
-
-# from etptypes.energistics.etp.v12.datatypes.uuid import to_Uuid, to_UUID
-
-from etpproto.uri import *
-
-from etpproto.connection import ETPConnection, CommunicationProtocol
-from etpproto.uri import parse_uri
 
 from etpclient.etp.h5_handler import generate_put_data_arrays
-from etpclient.utils import basic_auth_encode, basic_auth_header, get_xml_dict_from_string, search_all_element_value
+from etpclient.rest_client import rest_client_from_config
+from etpclient.server_config import *
+from etpclient.utils import basic_auth_encode, get_xml_dict_from_string, search_all_element_value, xml_get_type, \
+    get_xml_tree_string
 
-from etpclient.utils import (
-    xml_get_type,
-    get_xml_tree_string,
-)
+# from etptypes.energistics.etp.v12.datatypes.uuid import to_Uuid, to_UUID
 
 
 ENERGYML_NAMESPACES = {
@@ -421,18 +394,18 @@ def put_data_object_by_path(
                             uuid = findUuid(zinfo.filename)
                             if uuid is None:
                                 uuid = find_uuid_in_xml(file_content)
-                            print(f"UUID {uuid}")
                             if uuid is not None and (
                                     uuids_filter is None
                                     or len(uuids_filter) == 0
                                     or uuid in uuids_filter
                             ):
+                                print(f"Uploading {uuid}")
                                 do_lst[len(do_lst)] = _create_data_object(
                                     file_content.decode("utf-8"),
                                     dataspace_name,
                                 )
-                            else:
-                                print(f"Ignoring file : {zinfo.filename}")
+                            # else:
+                            #     print(f"Ignoring file : {zinfo.filename}")
         except FileNotFoundError:
             print(f"File {path} not found")
         result.append(PutDataObjects(data_objects=do_lst))
@@ -627,9 +600,11 @@ async def put_data_array_sender(
         dataspace_name: str,
         type_filter: str = None,
 ):
-    print(
+    logging.debug(
         f"uuids_filter : {uuids_filter} epc_or_xml_file_path : {epc_or_xml_file_path} h5_file_path : {h5_file_path} dataspace_name : {dataspace_name} type_filter : {type_filter} "
     )
+    config = ServerConfig()
+    rest_client = rest_client_from_config(config)
     if epc_or_xml_file_path.endswith(".epc"):
         zfile = zipfile.ZipFile(epc_or_xml_file_path, "r")
         for zinfo in zfile.infolist():
@@ -654,7 +629,7 @@ async def put_data_array_sender(
                         )
 
                 if accept_file:
-                    print(" > accept_file Uuid : ", uuid)
+                    logging.debug(f" > accept_file Uuid : {uuid}")
                     with zfile.open(zinfo.filename) as myfile:
                         for pda in generate_put_data_arrays(
                                 myfile.read().decode("utf-8"),
@@ -663,11 +638,15 @@ async def put_data_array_sender(
                         ):
                             # print(type(pda), pda)
                             try:
-                                yield await websocket.send_no_wait(pda)
+                                if config[USE_REST]:
+                                    logging.info("USING rest")
+                                    rest_client.put_dataarray(pda.json(by_alias=True))
+                                else:
+                                    yield await websocket.send_no_wait(pda)
                             except Exception as e:
-                                print("ERROR : ", e)
+                                logging.error(e)
                 else:
-                    print("Not imported ", uuid, " -- ", uuid in uuids_filter)
+                    logging.error(f"Not imported {uuid} -- {uuid in uuids_filter}")
                     pass
         zfile.close()
     else:
@@ -676,9 +655,13 @@ async def put_data_array_sender(
                     f.read().decode("utf-8"), h5_file_path, dataspace_name
             ):
                 try:
-                    yield await websocket.send_no_wait(pda)
+                    if config[USE_REST]:
+                        logging.info("USING rest")
+                        rest_client.put_dataarray(pda.json(by_alias=True))
+                    else:
+                        yield await websocket.send_no_wait(pda)
                 except Exception as e:
-                    print(e)
+                    logging.error(e)
 
 
 async def download_dataspace(

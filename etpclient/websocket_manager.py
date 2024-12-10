@@ -78,15 +78,13 @@ class WebSocketManager:
         elif username is not None:
             headers["Authorization"] = "Basic " + basic_auth_encode(username, password)
 
-        # headers["data-partition-id"] = "osdu"
-        # logging.debug(f"additional_headers {additional_headers}")
         if isinstance(additional_headers, dict):
             headers = headers | additional_headers
         elif isinstance(additional_headers, list):
             for a_h in additional_headers or []:
                 headers = headers | a_h
 
-#         logging.debug(f"Headers {headers}")
+        logging.debug(f"Headers {headers}")
 
         self.ws = websocket.WebSocketApp(
             uri,
@@ -235,7 +233,9 @@ class WebSocketManager:
         # logging.debug("OPENING")
         self.connected = True
         try:
-            answer = asyncio.run(self.send_and_wait(request_session(), 4.0))
+            req_sess = request_session()
+            answer = asyncio.run(self.send_and_wait(req_sess, 4.0))
+            logging.debug(json.dumps(json.loads(req_sess.json()), indent=4))
             logging.info(f"CONNECTED : {answer}")
         except Exception as e:
             logging.error(e)

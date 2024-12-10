@@ -692,19 +692,19 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
             # SupportedDataObject(
             #     qualified_type="resqml22.*",
             #     data_object_capabilities={}),
-            #     # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True})
+                # data_object_capabilities={"SupportsGet": True, "SupportsPut": True, "SupportsDelete": True})
             # SupportedDataObject({'dataObjectCapabilities': {'SupportsDelete': {'item': {'boolean': True}},
             #                                           'SupportsGet': {'item': {'boolean': True}},
-            #                                           'SupportsPut': {'item': {'boolean': True}}
+            #                                           'SupportsPut': {'item': {'boolean': True}}}}
             #                                           )
-            # SupportedDataObject(
-            #     qualified_type="eml20.*",
-            #     data_object_capabilities={
-            #         "SupportsDelete": DataValue(item=True),
-            #         "SupportsPut": DataValue(item=True),
-            #         "SupportsGet": DataValue(item=True),
-            #     },
-            # ),
+            SupportedDataObject(
+                qualified_type="eml20.*",
+                data_object_capabilities={
+                    "SupportsDelete": DataValue(item=True),
+                    "SupportsPut": DataValue(item=True),
+                    "SupportsGet": DataValue(item=True),
+                },
+            ),
             SupportedDataObject(
                 qualified_type="resqml20.*",
                 data_object_capabilities={
@@ -733,13 +733,13 @@ def computeCapability(supportedProtocolList_fun) -> ServerCapabilities:
         # supported_compression=["gzip"],
         supported_formats=["xml"],
         endpoint_capabilities={
-            "MaxWebSocketMessagePayloadSize": DataValue(item=4000)
+            "MaxWebSocketMessagePayloadSize": DataValue(item=128000000)
         },
         supported_encodings=["binary"],
         contact_information=Contact(
             organization_name="Geosiris",
-            contact_name="Gauthier Valentin, Untereiner Lionel",
+            contact_name="Gauthier Valentin",
             contact_phone="",
-            contact_email="valentin.gauthier@geosiris.com, lionel.untereiner@geosiris.com",
+            contact_email="valentin.gauthier@geosiris.com",
         ),
     )
